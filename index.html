@@ -80,6 +80,10 @@ h2{font-family:"Fraunces",serif;font-weight:650;font-size:clamp(28px,4vw,40px);l
 .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto;padding-top:6px}
 .tag{font:12px "IBM Plex Mono",monospace;background:var(--chip);border-radius:5px;padding:3px 8px;color:var(--muted)}
 
+.card img.shot{width:100%;aspect-ratio:16/9;object-fit:cover;object-position:top;border-radius:8px;border:1px solid var(--line);display:block}
+.card a.repo{font-weight:500;font-size:14px;color:var(--accent);text-decoration:none;margin-top:4px}
+.card a.repo:hover{text-decoration:underline}
+
 /* skills */
 .skills{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
 .skill h4{font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px}
@@ -128,6 +132,7 @@ footer{padding:28px 0 40px;font:12px "IBM Plex Mono",monospace;color:var(--muted
     <a class="brand" href="#top">Kashif<span>.</span></a>
     <div class="links">
       <a href="#projects">Projects</a>
+      <a href="#code">Code</a>
       <a href="#skills">Skills</a>
       <a href="#experience">Experience</a>
       <a href="#contact">Contact</a>
@@ -209,9 +214,34 @@ footer{padding:28px 0 40px;font:12px "IBM Plex Mono",monospace;color:var(--muted
   </div>
 </section>
 
+<section id="code">
+  <div class="wrap">
+    <div class="sec-head"><span class="n">02</span><h2>Open-source tools</h2></div>
+    <p class="lede" style="margin:-16px 0 32px;font-size:17px">Production workflows I use, rebuilt in open-source Python on synthetic data. Each one is tested automatically and documented.</p>
+    <div class="grid">
+      <article class="card">
+        <a href="https://github.com/kashifrazi338/imagery-mosaic-toolkit" target="_blank" rel="noopener"><img class="shot" src="assets/mosaic.jpg" alt="Raw multi-sensor mosaic with visible seams beside the colour-balanced, feathered result" loading="lazy"></a>
+        <div class="kind">Python · Imagery</div>
+        <h3>Imagery Mosaic Toolkit</h3>
+        <p>Inventory, global least-squares colour balancing, feathered mosaicking, lossless JPEG 2000 export and an automated seam QC report for multi-sensor tile sets. On the demo set, the mean seam difference falls from 21.5 to 0.3 DN.</p>
+        <div class="tags"><span class="tag">rasterio</span><span class="tag">GDAL</span><span class="tag">NumPy</span><span class="tag">JPEG 2000</span><span class="tag">pytest</span></div>
+        <a class="repo" href="https://github.com/kashifrazi338/imagery-mosaic-toolkit" target="_blank" rel="noopener">View on GitHub ↗</a>
+      </article>
+      <article class="card">
+        <a href="https://github.com/kashifrazi338/etod-obstacle-qc" target="_blank" rel="noopener"><img class="shot" src="assets/etod.jpg" alt="e-TOD QC report with verdict, issue counts by check and map of flagged obstacles" loading="lazy"></a>
+        <div class="kind">Python · Aeronautical data</div>
+        <h3>e-TOD Obstacle Data QC</h3>
+        <p>14 configurable checks for obstacle datasets: attributes, coverage-area accuracy, height consistency, duplicates and geometry. Outputs a vendor-ready Excel issue log, an acceptance verdict and a GeoJSON of flagged obstacles.</p>
+        <div class="tags"><span class="tag">Shapely</span><span class="tag">pyproj</span><span class="tag">openpyxl</span><span class="tag">ICAO e-TOD</span><span class="tag">pytest</span></div>
+        <a class="repo" href="https://github.com/kashifrazi338/etod-obstacle-qc" target="_blank" rel="noopener">View on GitHub ↗</a>
+      </article>
+    </div>
+  </div>
+</section>
+
 <section id="skills">
   <div class="wrap">
-    <div class="sec-head"><span class="n">02</span><h2>Capabilities</h2></div>
+    <div class="sec-head"><span class="n">03</span><h2>Capabilities</h2></div>
     <div class="skills">
       <div class="skill"><h4>Enterprise &amp; Web GIS</h4><div class="tags">
         <span class="tag">ArcGIS Enterprise</span><span class="tag">ArcGIS Pro</span><span class="tag">Portal for ArcGIS</span><span class="tag">Web GIS</span><span class="tag">Geodatabases</span></div></div>
@@ -231,7 +261,7 @@ footer{padding:28px 0 40px;font:12px "IBM Plex Mono",monospace;color:var(--muted
 
 <section id="experience">
   <div class="wrap">
-    <div class="sec-head"><span class="n">03</span><h2>Experience</h2></div>
+    <div class="sec-head"><span class="n">04</span><h2>Experience</h2></div>
     <div class="tl">
       <div class="job now"><div class="when">Jun 2023 — Present</div><div>
         <h3>Neo Space Group</h3><div class="where">Senior GIS Consultant &amp; Project Manager · Riyadh</div>
@@ -253,7 +283,7 @@ footer{padding:28px 0 40px;font:12px "IBM Plex Mono",monospace;color:var(--muted
 
 <section id="certs">
   <div class="wrap">
-    <div class="sec-head"><span class="n">04</span><h2>Certifications</h2></div>
+    <div class="sec-head"><span class="n">05</span><h2>Certifications</h2></div>
     <div class="certs">
       <div class="cert"><b>PMP</b><span>Project Management Professional — PMI</span></div>
       <div class="cert"><b>PSM</b><span>Professional Scrum Master</span></div>
@@ -264,7 +294,7 @@ footer{padding:28px 0 40px;font:12px "IBM Plex Mono",monospace;color:var(--muted
 
 <section id="contact" class="contact" style="border-bottom:0">
   <div class="wrap">
-    <div class="sec-head"><span class="n">05</span><span class="mono" style="color:var(--muted);font-size:13px">CONTACT</span></div>
+    <div class="sec-head"><span class="n">06</span><span class="mono" style="color:var(--muted);font-size:13px">CONTACT</span></div>
     <h2>Open to senior GIS, remote sensing and geospatial programme roles.</h2>
     <div class="cta">
       <a class="btn primary" href="mailto:cartosat.kashif@gmail.com">✉ Email me</a>
