@@ -19,9 +19,9 @@ I deliver enterprise geospatial programmes — satellite imagery, photogrammetry
 
 | Project | Sector | What I did |
 |---|---|---|
-| **Makan Project (GDMS)** — *current* | National mapping | Supervisory QC of supplier DVOF / e-TOD obstacle deliveries; vendor issue reporting; training a team to mosaic & edge-match **634** multi-sensor tiles (Pléiades, GeoEye, WorldView) in ArcGIS Pro → JPEG 2000 |
-| **Royal Saudi Air Force** — Imagery Management | Defence | Enterprise imagery cataloguing and dissemination with ERDAS Apollo / Imagine |
-| **Ministry of Interior** — Public Safety Systems | Government | Geospatial components of public safety systems |
+| **Makan Project** — *current* | National mapping | Supervisory QC of supplier DVOF / e-TOD obstacle deliveries; vendor issue reporting; training a team to mosaic & edge-match **634** multi-sensor tiles (Pléiades, GeoEye, WorldView) in ArcGIS Pro → JPEG 2000 |
+| **Defence Project** — Imagery Management | Defence | Enterprise imagery cataloguing and dissemination with ERDAS Apollo / Imagine |
+| **Government Project** — Public Safety Systems | Government | Geospatial components of public safety systems |
 | **Jammu Smart City** — Geospatial Portal | Smart city | Web GIS portal for the smart city programme |
 | ***Remote Sensing Fundamentals*** — Textbook | Publishing | ~82-page KDP training manual, 120 original figures; chapters on GEE, UAV remote sensing, Python (GDAL, rasterio, scikit-learn) |
 
