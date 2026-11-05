@@ -99,6 +99,10 @@ h2{font-family:"Fraunces",serif;font-weight:650;font-size:clamp(28px,4vw,40px);l
 .book h4{font-family:"Fraunces",serif;font-size:18px;line-height:1.2;color:var(--ink)}
 .book p{font-size:13px;color:var(--muted);line-height:1.45}
 
+.card.private{border-style:dashed;border-color:var(--accent)}
+.lock{color:var(--accent);margin-left:8px}
+.card .note{font-size:14px;color:var(--muted);border-left:3px solid var(--accent);padding:4px 0 4px 12px}
+
 /* skills */
 .skills{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
 .skill h4{font-size:15px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px}
@@ -198,6 +202,19 @@ footer{padding:28px 0 40px;font:12px "IBM Plex Mono",monospace;color:var(--muted
           <li>Lead trainer for a team mosaicking and edge-matching 634 multi-sensor tiles (Pléiades, GeoEye, WorldView) in ArcGIS Pro, final output as JPEG 2000</li>
         </ul>
         <div class="tags" style="grid-column:1/-1"><span class="tag">ArcGIS Pro</span><span class="tag">Data QC</span><span class="tag">e-TOD</span><span class="tag">DVOF</span><span class="tag">Mosaicking</span><span class="tag">JP2</span></div>
+      </article>
+
+      <article class="card feature private">
+        <div>
+          <div class="kind">Product · Municipal GIS <span class="lock">● Proprietary</span></div>
+          <h3>Riyadh Municipal Suite</h3>
+          <p style="margin-top:10px">A web-based GIS spatial suite built for Riyadh municipality: one platform for municipal spatial data, mapping and decision support. It is being developed as a product and service for government bodies across the Middle East.</p>
+        </div>
+        <div>
+          <p class="note">Design, architecture and feature set are confidential. A live demonstration is available to clients and employers on request, under NDA.</p>
+          <a class="btn" style="margin-top:14px" href="mailto:cartosat.kashif@gmail.com?subject=Riyadh%20Municipal%20Suite%20%E2%80%94%20demo%20request">Request a demo ✉</a>
+        </div>
+        <div class="tags" style="grid-column:1/-1"><span class="tag">Web GIS</span><span class="tag">Municipal</span><span class="tag">Government</span><span class="tag">Product</span></div>
       </article>
 
       <article class="card">
