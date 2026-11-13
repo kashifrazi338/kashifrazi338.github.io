@@ -1,0 +1,49 @@
+name: Riyadh obstacles (best heights near runways)
+
+on:
+  push:
+    branches: [gba-obstacles]
+    paths: ["tools/riyadh_obstacles/**", ".github/workflows/riyadh-obstacles.yml"]
+  workflow_dispatch:
+    inputs:
+      near_km: {description: "Near zone radius (km)", default: "10"}
+      near_min: {description: "Near zone: height above (m)", default: "15"}
+      far_km: {description: "Outer zone radius (km)", default: "45"}
+      far_min: {description: "Outer zone: height at least (m)", default: "46"}
+      floor_m: {description: "Metres per floor for floor-count estimates", default: "3.5"}
+
+permissions:
+  contents: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install requests shapely pyshp duckdb
+      - name: Build obstacle list
+        working-directory: tools/riyadh_obstacles
+        run: |
+          python riyadh_obstacles.py \
+            --near-km "${{ github.event.inputs.near_km || '10' }}" \
+            --near-min "${{ github.event.inputs.near_min || '15' }}" \
+            --far-km "${{ github.event.inputs.far_km || '45' }}" \
+            --far-min "${{ github.event.inputs.far_min || '46' }}" \
+            --floor-m "${{ github.event.inputs.floor_m || '3.5' }}" \
+            --gba ../../results/gba_obstacles.shp --out out 2>&1 | tee run_log.txt
+          mv run_log.txt out/
+      - name: Commit results (results_riyadh/)
+        if: always()
+        run: |
+          rm -rf results_riyadh && mkdir -p results_riyadh
+          cp -r tools/riyadh_obstacles/out/. results_riyadh/ || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results_riyadh
+          git commit -m "Riyadh obstacle results from run ${{ github.run_id }} [skip ci]" || echo "nothing to commit"
+          git push || (git pull --rebase && git push)
