@@ -1,0 +1,31 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Runways used: 6
+   OERK King Khalid International 15L/33R (open)
+   OERK King Khalid International 15R/33L (open)
+   OETH Thumamah 17/35 (open)
+   OE53 King Abdul Aziz Military Academy 15/33 (open)
+   OERY Riyadh Air Base (old airport) 01/19 (open)
+   OERY Riyadh Air Base (old airport) 15/33 (closed)
+Area: lon 45.937..47.179, lat 24.300..25.636; GBA tiles: e045_n25_e050_n20, e045_n30_e050_n25
+Listing GBA files on Hugging Face ...
+  downloading zhu-xlab/GBA.LoD1/LoD1/africa/e045_n25_e050_n20.json (large files take a while) ...
+  downloading zhu-xlab/GBA.LoD1/Polygon/africa/e045_n25_e050_n20.geojson (large files take a while) ...
+  downloading zhu-xlab/GBA.ODbLPolygon/africa/e045_n25_e050_n20.geojson (large files take a while) ...
+  downloading zhu-xlab/GBA.LoD1/LoD1/africa/e045_n30_e050_n25.json (large files take a while) ...
+  downloading zhu-xlab/GBA.LoD1/Polygon/africa/e045_n30_e050_n25.geojson (large files take a while) ...
+  downloading zhu-xlab/GBA.ODbLPolygon/africa/e045_n30_e050_n25.geojson (large files take a while) ...
+Tile e045_n25_e050_n20 [africa]: reading heights from e045_n25_e050_n20.json
+    1,314,291 heights read, 4,748 above 15.0 m; >=46 m: 27; max 77.0 m
+  scanning footprints /home/runner/work/kashifrazi338.github.io/kashifrazi338.github.io/tools/gba_obstacles/gba_data/ODbLPolygon/africa/e045_n25_e050_n20.geojson
+    1,314,291 footprints scanned in e045_n25_e050_n20.geojson, 4,748 had a height above the minimum, 4,571 of those inside the 45 km box, 2,211 selected
+  scanning footprints /home/runner/work/kashifrazi338.github.io/kashifrazi338.github.io/tools/gba_obstacles/gba_data/Polygon/africa/e045_n25_e050_n20.geojson
+    0 footprints scanned in e045_n25_e050_n20.geojson, 0 had a height above the minimum, 0 of those inside the 45 km box, 0 selected
+Tile e045_n30_e050_n25 [africa]: reading heights from e045_n30_e050_n25.json
+    1,057,288 heights read, 9,436 above 15.0 m; >=46 m: 138; max 107.7 m
+  scanning footprints /home/runner/work/kashifrazi338.github.io/kashifrazi338.github.io/tools/gba_obstacles/gba_data/ODbLPolygon/africa/e045_n30_e050_n25.geojson
+    934,378 footprints scanned in e045_n30_e050_n25.geojson, 8,249 had a height above the minimum, 9 of those inside the 45 km box, 0 selected
+  scanning footprints /home/runner/work/kashifrazi338.github.io/kashifrazi338.github.io/tools/gba_obstacles/gba_data/Polygon/africa/e045_n30_e050_n25.geojson
+    122,910 footprints scanned in e045_n30_e050_n25.geojson, 1,187 had a height above the minimum, 0 of those inside the 45 km box, 0 selected
+
+Done: 2,211 buildings  (2,211 within 10 km above 15 m, 0 at 10-45 km of 46 m and above)
+Output: /home/runner/work/kashifrazi338.github.io/kashifrazi338.github.io/tools/gba_obstacles/gba_output  (gba_obstacles.csv / .shp / .kml, runways.shp)
