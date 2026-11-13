@@ -142,22 +142,25 @@ def download_tiles(tiles, data_dir: Path, api=None, downloader=None):
     odbl_files = api.list_repo_files(ODBL_REPO, repo_type="dataset")
     out = []
     for t in tiles:
-        js = [f for f in lod1_files if f.startswith("LoD1/") and f.endswith("/" + t + ".json")]
-        pg = [f for f in lod1_files if f.startswith("Polygon/") and f.endswith("/" + t + ".geojson")]
-        od = [f for f in odbl_files if f.endswith("/" + t + ".geojson") or f == t + ".geojson"]
-        if not js:
+        js_all = [f for f in lod1_files if f.startswith("LoD1/") and f.endswith("/" + t + ".json")]
+        if not js_all:
             print(f"  tile {t}: no LoD1 heights in GBA (no buildings or not covered) - skipped")
             continue
-        got = []
-        for repo, lst, sub in ((LOD1_REPO, js, ""), (LOD1_REPO, pg, ""), (ODBL_REPO, od, "ODbLPolygon")):
-            if not lst:
-                got.append(None)
-                continue
-            f = lst[0]
-            print(f"  downloading {repo}/{f} (large files take a while) ...")
-            p = downloader(repo_id=repo, filename=f, repo_type="dataset", local_dir=str(data_dir / sub) if sub else str(data_dir))
-            got.append(Path(p))
-        out.append((t, got[0], got[1], got[2]))
+        # the same tile can exist in several regional folders (e.g. africa and asiawest): use every copy
+        for js in js_all:
+            region = js.split("/")[1]
+            pg = [f for f in lod1_files if f == f"Polygon/{region}/{t}.geojson"]
+            od = [f for f in odbl_files if f.endswith(f"{region}/{t}.geojson")]
+            got = []
+            for repo, lst, sub in ((LOD1_REPO, [js], ""), (LOD1_REPO, pg, ""), (ODBL_REPO, od, "ODbLPolygon")):
+                if not lst:
+                    got.append(None)
+                    continue
+                f = lst[0]
+                print(f"  downloading {repo}/{f} (large files take a while) ...")
+                p = downloader(repo_id=repo, filename=f, repo_type="dataset", local_dir=str(data_dir / sub) if sub else str(data_dir))
+                got.append(Path(p))
+            out.append((f"{t} [{region}]", got[0], got[1], got[2]))
     return out
 
 
@@ -165,13 +168,14 @@ def local_tiles(tiles, data_dir: Path):
     """Use files already on disk (same layout as Hugging Face) - for --no-download."""
     out = []
     for t in tiles:
-        js = next(iter(data_dir.glob(f"LoD1/**/{t}.json")), None)
-        pg = next(iter(data_dir.glob(f"Polygon/**/{t}.geojson")), None)
-        od = next(iter(data_dir.glob(f"ODbLPolygon/**/{t}.geojson")), None)
-        if js:
-            out.append((t, js, pg, od))
-        else:
+        found = sorted(data_dir.glob(f"LoD1/*/{t}.json"))
+        if not found:
             print(f"  tile {t}: no LoD1/<region>/{t}.json under {data_dir} - skipped")
+        for js in found:
+            region = js.parent.name
+            pg = data_dir / "Polygon" / region / f"{t}.geojson"
+            od = data_dir / "ODbLPolygon" / region / f"{t}.geojson"
+            out.append((f"{t} [{region}]", js, pg if pg.exists() else None, od if od.exists() else None))
     return out
 
 
@@ -227,7 +231,8 @@ def read_heights(json_path: Path, min_h: float):
                 keep[key] = (float(h), float(var) if var is not None else None)
             if n % 2_000_000 == 0:
                 print(f"    {n:,} heights read, {len(keep):,} above {min_h} m ({time.time() - t0:.0f}s)")
-    print(f"    {n:,} heights read, {len(keep):,} above {min_h} m")
+    hs = sorted(v[0] for v in keep.values())
+    print(f"    {n:,} heights read, {len(keep):,} above {min_h} m; >=46 m: {sum(1 for h in hs if h >= 46):,}; max {hs[-1] if hs else 0:.1f} m")
     return keep
 
 
@@ -235,7 +240,7 @@ def scan_polygons(gj_path: Path, heights, bbox, rd: RunwayDistance, a):
     import ijson
     w, s, e, n = bbox
     hits = []
-    cnt = 0
+    cnt = matched = inside = 0
     with open(gj_path, "rb") as f:
         for feat in ijson.items(f, "features.item"):
             cnt += 1
@@ -245,6 +250,7 @@ def scan_polygons(gj_path: Path, heights, bbox, rd: RunwayDistance, a):
             if hv is None:
                 continue
             h, var = hv
+            matched += 1
             polys = polygons_ll(feat.get("geometry") or {})
             if not polys:
                 continue
@@ -252,6 +258,7 @@ def scan_polygons(gj_path: Path, heights, bbox, rd: RunwayDistance, a):
             clon, clat = ring_centroid(outer[:-1] if outer[0] == outer[-1] else outer)
             if not (w <= clon <= e and s <= clat <= n):
                 continue
+            inside += 1
             pts = [pt for poly in polys for pt in poly[0]] + [(clon, clat)]
             d, rwname = rd.nearest(pts)
             dkm = d / 1000
@@ -267,7 +274,8 @@ def scan_polygons(gj_path: Path, heights, bbox, rd: RunwayDistance, a):
                              nearest_runway=rwname, zone=zone, polys=polys))
             if cnt % 1_000_000 == 0:
                 print(f"    {cnt:,} footprints scanned, {len(hits):,} selected")
-    print(f"    {cnt:,} footprints scanned in {gj_path.name}, {len(hits):,} selected")
+    print(f"    {cnt:,} footprints scanned in {gj_path.name}, {matched:,} had a height above the minimum, "
+          f"{inside:,} of those inside the 45 km box, {len(hits):,} selected")
     return hits
 
 
