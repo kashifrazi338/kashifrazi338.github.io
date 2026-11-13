@@ -35,7 +35,7 @@ jobs:
             --near-km "${{ github.event.inputs.near_km || '10' }}" \
             --near-min "${{ github.event.inputs.near_min || '15' }}" \
             --far-km "${{ github.event.inputs.far_km || '45' }}" \
-            --far-min "${{ github.event.inputs.far_min || '46' }}" 2>&1 | tee gba_output_log.txt
+            --far-min "${{ github.event.inputs.far_min || '46' }}" --include-closed 2>&1 | tee gba_output_log.txt
           mkdir -p gba_output && mv gba_output_log.txt gba_output/
           du -sh gba_data/* || true
           ls -la gba_output
