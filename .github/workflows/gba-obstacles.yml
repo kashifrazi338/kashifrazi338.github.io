@@ -1,0 +1,47 @@
+name: GBA tall buildings near runways
+
+on:
+  push:
+    branches: [gba-obstacles]
+    paths: ["tools/gba_obstacles/**", ".github/workflows/gba-obstacles.yml"]
+  workflow_dispatch:
+    inputs:
+      near_km: {description: "Near zone radius (km)", default: "10"}
+      near_min: {description: "Near zone: height above (m)", default: "15"}
+      far_km: {description: "Outer zone radius (km)", default: "45"}
+      far_min: {description: "Outer zone: height at least (m)", default: "46"}
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk space for large tiles
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
+          df -h /
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: |
+          pip install huggingface_hub ijson pyshp
+          python -c "import ijson; print('ijson backend', ijson.backend)"
+      - name: Download GBA tiles and select buildings
+        working-directory: tools/gba_obstacles
+        run: |
+          python gba_obstacles.py \
+            --near-km "${{ github.event.inputs.near_km || '10' }}" \
+            --near-min "${{ github.event.inputs.near_min || '15' }}" \
+            --far-km "${{ github.event.inputs.far_km || '45' }}" \
+            --far-min "${{ github.event.inputs.far_min || '46' }}" 2>&1 | tee gba_output_log.txt
+          mkdir -p gba_output && mv gba_output_log.txt gba_output/
+          du -sh gba_data/* || true
+          ls -la gba_output
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gba-obstacles-output
+          path: tools/gba_obstacles/gba_output
+          retention-days: 14
