@@ -82,8 +82,9 @@ class Proj:
         return math.radians(lon - self.lon0) * self.k * R, (math.radians(lat) - self.lat0) * R
 
     def geom(self, g):
-        from shapely.ops import transform
-        return transform(lambda x, y, z=None: self.fwd(x, y), g)
+        import shapely, numpy as np
+        k, lon0, lat0 = self.k, self.lon0, self.lat0
+        return shapely.transform(g, lambda a: np.column_stack([np.radians(a[:, 0] - lon0) * k * R, (np.radians(a[:, 1]) - lat0) * R]))
 
 
 class RunwayDistance:
@@ -179,7 +180,14 @@ def load_osm(pbf):
                     feats.append(json.loads(line))
                 except ValueError:
                     pass
-    log(f"   {len(feats):,} OSM features exported")
+    best = {}
+    rank = {"Polygon": 0, "MultiPolygon": 0, "Point": 1, "LineString": 2, "MultiLineString": 2}
+    for ft in feats:
+        k = (ft["properties"].get("@type"), ft["properties"].get("@id"))
+        if k not in best or rank.get(ft["geometry"]["type"], 3) < rank.get(best[k]["geometry"]["type"], 3):
+            best[k] = ft
+    log(f"   {len(feats):,} OSM features exported, {len(best):,} distinct objects")
+    feats = list(best.values())
     OSM_FEATURES = feats
     return feats
 
@@ -249,8 +257,8 @@ def get_runways(pbf, min_len=800):
     log(f"   {len(rws)} runways of {min_len} m or longer from OSM ({short} shorter strips ignored)")
     for ap, ref, la1, lo1, la2, lo2 in OURAIRPORTS_RUNWAYS:
         mid = ((la1 + la2) / 2, (lo1 + lo2) / 2)
-        if not any(abs((r["lat1"] + r["lat2"]) / 2 - mid[0]) < 0.015 and abs((r["lon1"] + r["lon2"]) / 2 - mid[1]) < 0.015 for r in rws):
-            rws.append(dict(airport=ap, runway=ref, status="open", lat1=la1, lon1=lo1, lat2=la2, lon2=lo2, length_m=0, source="OurAirports"))
+        if not any(r["source"].startswith("osm") and abs((r["lat1"] + r["lat2"]) / 2 - mid[0]) < 0.015 and abs((r["lon1"] + r["lon2"]) / 2 - mid[1]) < 0.015 for r in rws):
+            rws.append(dict(airport=ap, runway=ref, status="closed" if "15/33" in ref and "OERY" in ap else "open", lat1=la1, lon1=lo1, lat2=la2, lon2=lo2, length_m=0, source="OurAirports"))
     return rws
 
 
