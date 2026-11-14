@@ -15,8 +15,11 @@ Runways: OSM aeroway=runway in the Riyadh region, plus OurAirports runways for a
 import argparse, csv, json, math, os, re, subprocess, sys, time
 from pathlib import Path
 
+import logging
 import requests
 import shapefile
+logging.getLogger('shapefile').setLevel(logging.ERROR)
+from shapely.geometry.polygon import orient
 from shapely.geometry import Polygon, MultiPolygon, Point, LineString, shape, mapping
 from shapely.strtree import STRtree
 from shapely import wkb as shp_wkb
@@ -148,67 +151,136 @@ def osm_geom(el):
     return None
 
 
+# ------------------------------------------------------------------ OpenStreetMap (Geofabrik extract + osmium)
+OSM_FEATURES = None
+
+
+def load_osm(pbf):
+    """Filter the Geofabrik extract to the Riyadh region with osmium and return GeoJSON features."""
+    global OSM_FEATURES
+    if OSM_FEATURES is not None:
+        return OSM_FEATURES
+    w, s, e, n = REGION[0] - 0.6, REGION[1] - 0.6, REGION[2] + 0.6, REGION[3] + 0.6
+    work = Path("osm_work"); work.mkdir(exist_ok=True)
+    cut, flt, gj = work / "region.osm.pbf", work / "filtered.osm.pbf", work / "features.geojsonseq"
+    run = lambda cmd: (log("   $ " + " ".join(cmd)), subprocess.run(cmd, check=True))
+    run(["osmium", "extract", "-b", f"{w},{s},{e},{n}", str(pbf), "-o", str(cut), "--overwrite", "-s", "smart"])
+    run(["osmium", "tags-filter", str(cut), "nwr/building:levels", "nwr/height", "nwr/est_height",
+         "nwr/man_made=tower,mast,chimney,water_tower,communications_tower,antenna,crane,silo,flagpole",
+         "nwr/tower:type", "n/power=tower", "nwr/aerialway=pylon", "nwr/aeroway=runway,aerodrome",
+         "-o", str(flt), "--overwrite"])
+    run(["osmium", "export", str(flt), "-f", "geojsonseq", "-a", "type,id", "-o", str(gj), "--overwrite"])
+    feats = []
+    with open(gj, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip().lstrip("\x1e")
+            if line:
+                try:
+                    feats.append(json.loads(line))
+                except ValueError:
+                    pass
+    log(f"   {len(feats):,} OSM features exported")
+    OSM_FEATURES = feats
+    return feats
+
+
+def fgeom(ft):
+    try:
+        g = shape(ft["geometry"])
+        return g if g.is_valid else g.buffer(0)
+    except Exception:
+        return None
+
+
+def fref(ft):
+    p = ft["properties"]
+    return f'osm {p.get("@type", "")}/{p.get("@id", "")}'
+
+
 # ------------------------------------------------------------------ runways
-def get_runways():
+def get_runways(pbf, min_len=800):
+    feats = load_osm(pbf)
     w, s, e, n = REGION
-    q = f'[out:json][timeout:300];(way["aeroway"="runway"]({s},{w},{n},{e}););out tags geom;'
-    js = overpass(q, "runways")
-    rws = []
-    for el in js["elements"]:
-        tags = el.get("tags", {})
-        pts = [(p["lon"], p["lat"]) for p in el.get("geometry", []) if p]
-        if len(pts) < 2:
+    aerodromes = []
+    for ft in feats:
+        p = ft["properties"]
+        if p.get("aeroway") == "aerodrome":
+            g = fgeom(ft)
+            if g is not None:
+                aerodromes.append((g, p.get("name:en") or p.get("name") or "", p.get("icao") or ""))
+    rws, short = [], 0
+    for ft in feats:
+        p = ft["properties"]
+        if p.get("aeroway") != "runway":
             continue
-        if pts[0] == pts[-1] and len(pts) > 3:   # runway drawn as area: use its two farthest vertices
-            best = max(((a, b) for i, a in enumerate(pts) for b in pts[i + 1:]),
-                       key=lambda ab: (ab[0][0] - ab[1][0]) ** 2 + ((ab[0][1] - ab[1][1]) / 1.1) ** 2)
-            pts = list(best)
-        (lo1, la1), (lo2, la2) = pts[0], pts[-1]
+        g = fgeom(ft)
+        if g is None:
+            continue
+        if g.geom_type in ("Polygon", "MultiPolygon"):
+            ring = list((g.geoms[0] if g.geom_type == "MultiPolygon" else g).exterior.coords)
+            pts = list(max(((a, b) for i, a in enumerate(ring) for b in ring[i + 1:]),
+                           key=lambda ab: (ab[0][0] - ab[1][0]) ** 2 + (ab[0][1] - ab[1][1]) ** 2))
+        elif g.geom_type == "LineString":
+            pts = list(g.coords)
+        else:
+            continue
+        (lo1, la1), (lo2, la2) = pts[0][:2], pts[-1][:2]
+        mid = Point((lo1 + lo2) / 2, (la1 + la2) / 2)
+        if not (w <= mid.x <= e and s <= mid.y <= n):
+            continue
         length = 2 * R * math.asin(math.sqrt(math.sin(math.radians(la2 - la1) / 2) ** 2 +
                                              math.cos(math.radians(la1)) * math.cos(math.radians(la2)) * math.sin(math.radians(lo2 - lo1) / 2) ** 2))
-        if length < 300:
+        if length < min_len:
+            short += 1
             continue
-        status = "closed" if tags.get("disused") == "yes" or tags.get("abandoned") == "yes" or "disused:aeroway" in tags else "open"
-        rws.append(dict(airport=tags.get("name:en") or tags.get("name") or f"OSM way {el['id']}", runway=tags.get("ref", "?"),
-                        status=status, lat1=la1, lon1=lo1, lat2=la2, lon2=lo2, length_m=round(length), source=f"OSM way {el['id']}"))
-    # add OurAirports runways when no OSM runway lies within 1.5 km of them
+        name, icao = "", ""
+        for ag, an, ai in aerodromes:
+            if ag.geom_type in ("Polygon", "MultiPolygon") and ag.contains(mid):
+                name, icao = an, ai; break
+        if not name:
+            cand = [(ag.distance(mid), an, ai) for ag, an, ai in aerodromes]
+            if cand:
+                d, an, ai = min(cand)
+                if d < 0.05:
+                    name, icao = an, ai
+        status = "closed" if any(k in p for k in ("disused", "abandoned", "disused:aeroway")) or p.get("operational_status") == "closed" else "open"
+        rws.append(dict(airport=(f"{icao} " if icao else "") + (name or "unnamed airfield"), runway=p.get("ref", "?"), status=status,
+                        lat1=la1, lon1=lo1, lat2=la2, lon2=lo2, length_m=round(length), source=fref(ft)))
+    log(f"   {len(rws)} runways of {min_len} m or longer from OSM ({short} shorter strips ignored)")
     for ap, ref, la1, lo1, la2, lo2 in OURAIRPORTS_RUNWAYS:
         mid = ((la1 + la2) / 2, (lo1 + lo2) / 2)
-        near = any(abs((r["lat1"] + r["lat2"]) / 2 - mid[0]) < 0.015 and abs((r["lon1"] + r["lon2"]) / 2 - mid[1]) < 0.015 for r in rws)
-        if not near:
+        if not any(abs((r["lat1"] + r["lat2"]) / 2 - mid[0]) < 0.015 and abs((r["lon1"] + r["lon2"]) / 2 - mid[1]) < 0.015 for r in rws):
             rws.append(dict(airport=ap, runway=ref, status="open", lat1=la1, lon1=lo1, lat2=la2, lon2=lo2, length_m=0, source="OurAirports"))
     return rws
 
 
 # ------------------------------------------------------------------ sources
-def osm_objects(bbox):
+def osm_objects(pbf, bbox):
     w, s, e, n = bbox
-    bb = f"({s},{w},{n},{e})"
-    q = (f'[out:json][timeout:1100][maxsize:2000000000];('
-         f'nwr["building"]["height"]{bb};nwr["building"]["building:levels"]{bb};'
-         f'nwr["building:part"]["height"]{bb};nwr["building:part"]["building:levels"]{bb};'
-         f'nwr["man_made"~"^(tower|mast|chimney|water_tower|communications_tower|antenna|crane|silo|flagpole)$"]{bb};'
-         f'nwr["tower:type"]{bb};node["power"="tower"]{bb};nwr["aerialway"="pylon"]{bb};'
-         f');out tags geom;')
-    js = overpass(q, "buildings and structures")
     out = []
-    for el in js["elements"]:
-        t = el.get("tags", {})
-        g = osm_geom(el)
+    for ft in load_osm(pbf):
+        t = ft["properties"]
+        if t.get("aeroway") in ("runway", "aerodrome") and not ("building" in t or "height" in t):
+            continue
+        g = fgeom(ft)
         if g is None or g.is_empty:
+            continue
+        c = g.representative_point()
+        if not (w <= c.x <= e and s <= c.y <= n):
             continue
         h = parse_height(t.get("height")) or parse_height(t.get("est_height"))
         lv = parse_levels(t.get("building:levels"))
         kind = ("building part" if "building:part" in t else "building" if "building" in t else
                 "power pylon" if t.get("power") == "tower" else t.get("man_made") or t.get("tower:type") or "structure")
+        if kind in ("building", "building part") and not (h or lv):
+            continue
         name = t.get("name:en") or t.get("name") or ""
         if h:
-            out.append(dict(geom=g, height=h, prio=1, source="OSM height tag", kind=kind, name=name, ref=f"osm {el['type']}/{el['id']}"))
+            out.append(dict(geom=g, height=h, prio=1, source="OSM height tag", kind=kind, name=name, ref=fref(ft)))
         elif lv:
-            hh = lv * FLOOR_M
-            out.append(dict(geom=g, height=hh, prio=3, source=f"OSM {lv:g} floors x {FLOOR_M} m", kind=kind, name=name, ref=f"osm {el['type']}/{el['id']}"))
+            out.append(dict(geom=g, height=lv * FLOOR_M, prio=3, source=f"OSM {lv:g} floors x {FLOOR_M} m", kind=kind, name=name, ref=fref(ft)))
         else:
-            out.append(dict(geom=g, height=None, prio=9, source="OSM (no height)", kind=kind, name=name, ref=f"osm {el['type']}/{el['id']}"))
+            out.append(dict(geom=g, height=None, prio=9, source="OSM (no height)", kind=kind, name=name, ref=fref(ft)))
     return out
 
 
@@ -360,6 +432,7 @@ def write(results, unknown, runways, out: Path):
         if g.geom_type in ("Polygon", "MultiPolygon"):
             rings = []
             for p in (g.geoms if g.geom_type == "MultiPolygon" else [g]):
+                p = orient(p, sign=-1.0)   # shapefile: clockwise outer ring
                 rings.append([list(c) for c in p.exterior.coords])
                 rings += [[list(c) for c in i.coords] for i in p.interiors]
             pw.poly(rings); pw.record(*rec(r))
@@ -420,11 +493,13 @@ def main():
     ap.add_argument("--gba", default="../../results/gba_obstacles.shp")
     ap.add_argument("--out", type=Path, default=Path("out"))
     ap.add_argument("--no-overture", action="store_true")
+    ap.add_argument("--pbf", default="gcc-states-latest.osm.pbf", help="Geofabrik OSM extract")
+    ap.add_argument("--min-runway-m", type=float, default=800)
     a = ap.parse_args()
     FLOOR_M = a.floor_m
 
     log("1) Runways")
-    runways = get_runways()
+    runways = get_runways(a.pbf, a.min_runway_m)
     for r in runways:
         log(f"   {r['airport']} {r['runway']} {r['status']} {r['length_m']} m [{r['source']}]")
     lats = [r[k] for r in runways for k in ("lat1", "lat2")]; lons = [r[k] for r in runways for k in ("lon1", "lon2")]
@@ -435,7 +510,7 @@ def main():
     proj = Proj((bbox[1] + bbox[3]) / 2, (bbox[0] + bbox[2]) / 2)
 
     log("2) OpenStreetMap buildings and structures")
-    objs = osm_objects(bbox)
+    objs = osm_objects(a.pbf, bbox)
     log(f"   {len(objs):,} OSM objects ({sum(1 for o in objs if o['prio'] == 1):,} with height tag, "
         f"{sum(1 for o in objs if o['prio'] == 3):,} with floors only)")
     if not a.no_overture:

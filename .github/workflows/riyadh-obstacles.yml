@@ -25,18 +25,26 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install
-        run: pip install requests shapely pyshp duckdb
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q osmium-tool
+          pip install requests shapely pyshp duckdb
+      - name: Download OpenStreetMap extract (Geofabrik, GCC states)
+        working-directory: tools/riyadh_obstacles
+        run: |
+          curl -sSfL -o gcc-states-latest.osm.pbf https://download.geofabrik.de/asia/gcc-states-latest.osm.pbf
+          ls -la gcc-states-latest.osm.pbf
       - name: Build obstacle list
         working-directory: tools/riyadh_obstacles
         run: |
+          set -o pipefail
           python riyadh_obstacles.py \
             --near-km "${{ github.event.inputs.near_km || '10' }}" \
             --near-min "${{ github.event.inputs.near_min || '15' }}" \
             --far-km "${{ github.event.inputs.far_km || '45' }}" \
             --far-min "${{ github.event.inputs.far_min || '46' }}" \
             --floor-m "${{ github.event.inputs.floor_m || '3.5' }}" \
-            --gba ../../results/gba_obstacles.shp --out out 2>&1 | tee run_log.txt
-          mv run_log.txt out/
+            --gba ../../results/gba_obstacles.shp --pbf gcc-states-latest.osm.pbf --out out 2>&1 | tee run_log.txt
+          mkdir -p out && mv run_log.txt out/
       - name: Commit results (results_riyadh/)
         if: always()
         run: |
