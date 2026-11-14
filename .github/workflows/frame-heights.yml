@@ -1,0 +1,47 @@
+name: Building heights in a small box
+
+on:
+  push:
+    branches: [gba-obstacles]
+    paths: ["tools/frame_heights/**", ".github/workflows/frame-heights.yml"]
+  workflow_dispatch:
+    inputs:
+      bbox: {description: "W S E N (degrees)", default: "46.6620 24.6955 46.6960 24.7145"}
+      floor_m: {description: "Metres per floor for floor-count estimates", default: "3.5"}
+
+permissions:
+  contents: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q osmium-tool
+          pip install requests shapely pyshp duckdb huggingface_hub ijson
+      - name: Download OpenStreetMap extract
+        working-directory: tools/frame_heights
+        run: curl -sSfL -o gcc-states-latest.osm.pbf https://download.geofabrik.de/asia/gcc-states-latest.osm.pbf
+      - name: Heights for every building in the box
+        working-directory: tools/frame_heights
+        run: |
+          set -o pipefail
+          python frame_heights.py --bbox ${{ github.event.inputs.bbox || '46.6620 24.6955 46.6960 24.7145' }} \
+            --floor-m "${{ github.event.inputs.floor_m || '3.5' }}" --out frame_out 2>&1 | tee run_log.txt
+          mkdir -p frame_out && mv run_log.txt frame_out/
+      - name: Commit results (results_frame/)
+        if: always()
+        run: |
+          rm -rf results_frame && mkdir -p results_frame
+          cp -r tools/frame_heights/frame_out/. results_frame/ || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results_frame
+          git commit -m "Frame building heights from run ${{ github.run_id }} [skip ci]" || echo "nothing to commit"
+          git push || (git pull --rebase && git push)
