@@ -5,8 +5,10 @@ silo,,1.655,unnamed airfield ?,24.597175,46.8193982,osm way/331462290
 silo,,1.66,unnamed airfield ?,24.5978674,46.8195722,osm way/331462291
 silo,,1.801,unnamed airfield ?,24.5982676,46.8178546,osm way/331462292
 tower,,4.338,OERY Riyadh Air Base (old airport) 01/19,24.7757479,46.7514376,osm way/384194286
+water_tower,,8.677,OERY Riyadh Air Base (old airport) 15/33,24.6759442,46.6288349,osm way/717129627
+water_tower,,8.711,OERY Riyadh Air Base (old airport) 15/33,24.6760076,46.6284037,osm way/717129628
 power pylon,,9.86,King Abdul Aziz Military Academy Airport 04/22,24.9869466,46.4903706,osm node/443071196
-tower,,6.2,OERY Riyadh Air Base (old airport) 01/19,24.6712582,46.6757083,osm node/675564072
+tower,,6.104,OERY Riyadh Air Base (old airport) 15/33,24.6712582,46.6757083,osm node/675564072
 power pylon,,5.242,unnamed airfield ?,24.2813743,47.2667028,osm node/1114919854
 power pylon,,4.131,unnamed airfield ?,24.2864213,47.1852662,osm node/1114919873
 power pylon,,9.434,unnamed airfield ?,24.2875745,47.3081483,osm node/1114919879
@@ -108,7 +110,7 @@ power pylon,,9.98,Riyadh Khashm Alan Air Base 16/34,24.7132598,46.8789876,osm no
 power pylon,,6.359,OESN King Salman Airbase Project ?,24.5348093,46.6257208,osm node/1303471910
 power pylon,,9.097,unnamed airfield 17H/35H,24.5613204,46.5799034,osm node/1303471924
 power pylon,,9.2,Riyadh Khashm Alan Air Base 16/34,24.7070487,46.8827157,osm node/1303471930
-power pylon,,9.614,OERY Riyadh Air Base (old airport) 01/19,24.7791122,46.6443408,osm node/1303598451
+power pylon,,8.277,OERY Riyadh Air Base (old airport) 15/33,24.7791122,46.6443408,osm node/1303598451
 power pylon,,6.497,OEPC Pump Station 3 Airport 14/32,25.1221331,47.453674,osm node/1303598463
 power pylon,,8.914,OERY Riyadh Air Base (old airport) 01/19,24.64763,46.6629623,osm node/1303598481
 power pylon,,8.202,OERY Riyadh Air Base (old airport) 01/19,24.8155535,46.7313391,osm node/1303598488
@@ -116,7 +118,7 @@ power pylon,,9.172,OERY Riyadh Air Base (old airport) 01/19,24.6446911,46.662666
 power pylon,,7.729,OERY Riyadh Air Base (old airport) 01/19,24.7937594,46.6793777,osm node/1303598517
 power pylon,,9.962,OEPC Pump Station 3 Airport 14/32,25.0842695,47.5364215,osm node/1303598538
 power pylon,,8.364,OERY Riyadh Air Base (old airport) 01/19,24.8169056,46.7346942,osm node/1303598572
-power pylon,,7.937,OERY Riyadh Air Base (old airport) 01/19,24.6590827,46.6644245,osm node/1303598582
+power pylon,,7.831,OERY Riyadh Air Base (old airport) 15/33,24.6590827,46.6644245,osm node/1303598582
 power pylon,,9.966,OEPC Pump Station 3 Airport 14/32,25.0844251,47.53688,osm node/1303598590
 power pylon,,9.651,OERY Riyadh Air Base (old airport) 01/19,24.6414493,46.6595344,osm node/1303598640
 power pylon,,8.314,OERY Riyadh Air Base (old airport) 01/19,24.8164634,46.7345958,osm node/1303598662
@@ -124,7 +126,7 @@ power pylon,,8.173,OERY Riyadh Air Base (old airport) 01/19,24.6535728,46.666799
 power pylon,,9.377,OERY Riyadh Air Base (old airport) 01/19,24.6423903,46.6624341,osm node/1303598776
 power pylon,,7.778,OERY Riyadh Air Base (old airport) 01/19,24.7931157,46.6778664,osm node/1303598790
 power pylon,,8.658,OERY Riyadh Air Base (old airport) 01/19,24.8191411,46.740095,osm node/1303598855
-power pylon,,7.963,OERY Riyadh Air Base (old airport) 01/19,24.6578753,46.6652296,osm node/1303598867
+power pylon,,7.913,OERY Riyadh Air Base (old airport) 15/33,24.6578753,46.6652296,osm node/1303598867
 power pylon,,7.888,OERY Riyadh Air Base (old airport) 01/19,24.79205,46.67508,osm node/1303598875
 power pylon,,8.454,OERY Riyadh Air Base (old airport) 01/19,24.8175631,46.7372441,osm node/1303598890
 power pylon,,8.695,OERY Riyadh Air Base (old airport) 01/19,24.6475116,46.6662667,osm node/1303598910
@@ -541,22 +543,23 @@ power pylon,,7.626,OERY Riyadh Air Base (old airport) 01/19,24.7952251,46.682859
 power pylon,,7.399,OERY Riyadh Air Base (old airport) 01/19,24.8028053,46.7009438,osm node/2056363837
 power pylon,,7.539,OERY Riyadh Air Base (old airport) 01/19,24.8076864,46.7125812,osm node/2056363839
 power pylon,,7.533,OERY Riyadh Air Base (old airport) 01/19,24.7968714,46.6867699,osm node/2056363841
-power pylon,,8.153,OERY Riyadh Air Base (old airport) 01/19,24.7894105,46.6688103,osm node/2056363848
-power pylon,,9.897,OERY Riyadh Air Base (old airport) 01/19,24.7774313,46.6404104,osm node/2056363852
+power pylon,,7.975,OERY Riyadh Air Base (old airport) 15/33,24.7894105,46.6688103,osm node/2056363848
+power pylon,,8.405,OERY Riyadh Air Base (old airport) 15/33,24.7774313,46.6404104,osm node/2056363852
 power pylon,,7.425,OERY Riyadh Air Base (old airport) 01/19,24.7999264,46.6940271,osm node/2056363854
 power pylon,,8.032,OERY Riyadh Air Base (old airport) 01/19,24.8139999,46.7276347,osm node/2056363856
-power pylon,,8.867,OERY Riyadh Air Base (old airport) 01/19,24.7838535,46.655611,osm node/2056363863
+power pylon,,8.025,OERY Riyadh Air Base (old airport) 15/33,24.7838535,46.655611,osm node/2056363863
 power pylon,,7.871,OERY Riyadh Air Base (old airport) 01/19,24.8123368,46.7236693,osm node/2056363868
-power pylon,,9.093,OERY Riyadh Air Base (old airport) 01/19,24.7823409,46.6520183,osm node/2056363872
+power pylon,,8.085,OERY Riyadh Air Base (old airport) 15/33,24.7823409,46.6520183,osm node/2056363872
 power pylon,,7.625,OERY Riyadh Air Base (old airport) 01/19,24.8091732,46.7161263,osm node/2056363876
 power pylon,,7.747,OERY Riyadh Air Base (old airport) 01/19,24.8108693,46.7201702,osm node/2056363877
 power pylon,,7.463,OERY Riyadh Air Base (old airport) 01/19,24.8059299,46.7083934,osm node/2056363878
-power pylon,,8.057,OERY Riyadh Air Base (old airport) 01/19,24.7902255,46.6708582,osm node/2056363881
+power pylon,,7.986,OERY Riyadh Air Base (old airport) 15/33,24.7902255,46.6708582,osm node/2056363881
+power pylon,,8.501,OERY Riyadh Air Base (old airport) 15/33,24.776301,46.6377924,osm node/2056363882
 power pylon,,7.421,OERY Riyadh Air Base (old airport) 01/19,24.804433,46.7048246,osm node/2056363883
 power pylon,,7.405,OERY Riyadh Air Base (old airport) 01/19,24.8012434,46.6971558,osm node/2056363884
-power pylon,,8.303,OERY Riyadh Air Base (old airport) 01/19,24.7881033,46.6657053,osm node/2056363886
-power pylon,,8.46,OERY Riyadh Air Base (old airport) 01/19,24.7868356,46.6626942,osm node/2056363888
-power pylon,,9.355,OERY Riyadh Air Base (old airport) 01/19,24.780678,46.6480686,osm node/2056363889
+power pylon,,7.962,OERY Riyadh Air Base (old airport) 15/33,24.7881033,46.6657053,osm node/2056363886
+power pylon,,7.965,OERY Riyadh Air Base (old airport) 15/33,24.7868356,46.6626942,osm node/2056363888
+power pylon,,8.173,OERY Riyadh Air Base (old airport) 15/33,24.780678,46.6480686,osm node/2056363889
 power pylon,,5.809,OESN King Salman Airbase Project ?,24.5083056,46.7181473,osm node/2056426822
 power pylon,,8.59,OESN King Salman Airbase Project ?,24.5498971,46.6097662,osm node/2056426825
 power pylon,,6.008,OESN King Salman Airbase Project ?,24.5121177,46.7182116,osm node/2056426829
@@ -1228,10 +1231,11 @@ tower,,9.372,OERY Riyadh Air Base (old airport) 01/19,24.824052,46.7099258,osm n
 tower,,7.769,OERY Riyadh Air Base (old airport) 01/19,24.805973,46.6997785,osm node/3347581770
 water_tower,,2.995,OERY Riyadh Air Base (old airport) 01/19,24.720987,46.7569117,osm node/3351623126
 flagpole,,2.423,OERY Riyadh Air Base (old airport) 01/19,24.7176961,46.7506825,osm node/3351623339
-tower,,3.208,OERY Riyadh Air Base (old airport) 01/19,24.7344871,46.6969903,osm node/3351932238
-flagpole,,2.85,OERY Riyadh Air Base (old airport) 01/19,24.7100808,46.7537708,osm node/3353683546
-flagpole,,2.853,OERY Riyadh Air Base (old airport) 01/19,24.7101336,46.7538123,osm node/3353683547
-water_tower,,2.723,OERY Riyadh Air Base (old airport) 01/19,24.7045778,46.7516454,osm node/3353920455
+tower,,1.313,OERY Riyadh Air Base (old airport) 15/33,24.7344871,46.6969903,osm node/3351932238
+flagpole,,2.485,OERY Riyadh Air Base (old airport) 15/33,24.7100808,46.7537708,osm node/3353683546
+flagpole,,2.489,OERY Riyadh Air Base (old airport) 15/33,24.7101336,46.7538123,osm node/3353683547
+water_tower,,2.285,OERY Riyadh Air Base (old airport) 15/33,24.7045778,46.7516454,osm node/3353920455
+power pylon,,8.592,OERY Riyadh Air Base (old airport) 15/33,24.7752584,46.6354478,osm node/3355621182
 power pylon,,9.843,King Abdul Aziz Military Academy Airport 04/22,24.8899622,46.4835979,osm node/3356554847
 power pylon,,8.759,King Abdul Aziz Military Academy Airport 04/22,24.8942841,46.4737068,osm node/3356554848
 power pylon,,7.258,King Abdul Aziz Military Academy Airport 04/22,24.90025,46.4598416,osm node/3356554849
@@ -1304,6 +1308,9 @@ power pylon,,9.188,OERK King Khalid International Airport 15R/33L,25.0152653,46.
 power pylon,,8.005,OERK King Khalid International Airport 15R/33L,25.0138564,46.6111424,osm node/3360102973
 power pylon,,9.179,OERK King Khalid International Airport 15R/33L,25.015666,46.5983762,osm node/3360102974
 power pylon,,9.515,OERK King Khalid International Airport 15R/33L,25.0188551,46.5967049,osm node/3360102975
+flagpole,,8.127,OERY Riyadh Air Base (old airport) 15/33,24.689228,46.626273,osm node/3370300853
+flagpole,,9.026,OERY Riyadh Air Base (old airport) 15/33,24.6735788,46.6266573,osm node/3370607146
+flagpole,,8.868,OERY Riyadh Air Base (old airport) 15/33,24.6760137,46.6266245,osm node/3370607151
 tower,,7.737,OERY Riyadh Air Base (old airport) 01/19,24.7708093,46.7998236,osm node/3380208505
 power pylon,,9.965,Riyadh Khashm Alan Air Base 16/34,24.7129724,46.878582,osm node/3380647260
 power pylon,,9.733,Riyadh Khashm Alan Air Base 16/34,24.7111883,46.8798769,osm node/3380647261
@@ -1479,7 +1486,7 @@ power pylon,,2.787,unnamed airfield 17CH/35CH,24.4969395,46.5945561,osm node/340
 power pylon,,3.221,unnamed airfield 17LH/35RH,24.4907215,46.6070242,osm node/3409868001
 power pylon,,2.906,unnamed airfield 17LH/35RH,24.4877618,46.6052847,osm node/3409868003
 power pylon,,2.312,unnamed airfield 17LH/35RH,24.4816502,46.6016898,osm node/3409868004
-tower,,9.139,OERY Riyadh Air Base (old airport) 01/19,24.6798064,46.8105931,osm node/3412274035
+tower,,8.781,OERY Riyadh Air Base (old airport) 15/33,24.6798064,46.8105931,osm node/3412274035
 power pylon,,9.592,unnamed airfield ?,24.1742326,47.2678057,osm node/3432054760
 water_tower,,4.872,Riyadh Khashm Alan Air Base 16/34,24.5723915,46.9010059,osm node/3596711219
 tower,,3.826,Riyadh Khashm Alan Air Base 16/34,24.5869063,46.8958741,osm node/3596711389
@@ -1542,8 +1549,8 @@ power pylon,,4.966,OEPC Pump Station 3 Airport 14/32,25.1245214,47.4782395,osm n
 power pylon,,4.658,OEPC Pump Station 3 Airport 14/32,25.1267321,47.4804199,osm node/3736964083
 power pylon,,4.366,OEPC Pump Station 3 Airport 14/32,25.1288541,47.4825128,osm node/3736964085
 power pylon,,4.044,OEPC Pump Station 3 Airport 14/32,25.1312311,47.4848574,osm node/3736964087
-structure,,7.216,OERY Riyadh Air Base (old airport) 01/19,24.7439522,46.6583863,osm node/4155133490
-structure,,7.314,OERY Riyadh Air Base (old airport) 01/19,24.7447799,46.6575345,osm node/4155133495
+structure,,4.63,OERY Riyadh Air Base (old airport) 15/33,24.7439522,46.6583863,osm node/4155133490
+structure,,4.751,OERY Riyadh Air Base (old airport) 15/33,24.7447799,46.6575345,osm node/4155133495
 chimney,,7.179,unnamed airfield ?,24.3066643,47.1645121,osm node/4343901189
 chimney,Hajaris Contracting Est.,7.241,OERY Riyadh Air Base (old airport) 01/19,24.6417946,46.741293,osm node/4368953790
 tower,,7.346,OERY Riyadh Air Base (old airport) 01/19,24.6407722,46.7079424,osm node/4405537857
@@ -1628,8 +1635,8 @@ tower,,7.528,unnamed airfield 17H/35H,24.5096771,46.5067695,osm node/4983689507
 tower,,7.503,unnamed airfield 17H/35H,24.5095974,46.5069946,osm node/4983689508
 tower,,7.425,unnamed airfield 17H/35H,24.5091043,46.5075866,osm node/4983689509
 mast,,9.597,unnamed airfield 17H/35H,24.5469116,46.5139495,osm node/4983815513
-mast,,9.204,OERY Riyadh Air Base (old airport) 01/19,24.7688915,46.6440963,osm node/5123888219
-mast,,9.589,OERY Riyadh Air Base (old airport) 01/19,24.7732371,46.6417919,osm node/5123888220
+mast,,7.47,OERY Riyadh Air Base (old airport) 15/33,24.7688915,46.6440963,osm node/5123888219
+mast,,7.974,OERY Riyadh Air Base (old airport) 15/33,24.7732371,46.6417919,osm node/5123888220
 tower,,8.358,unnamed airfield 17H/35H,24.5528102,46.554202,osm node/5306459892
 tower,,4.818,unnamed airfield 17LH/35RH,24.4250219,46.586403,osm node/5387095466
 tower,,4.65,unnamed airfield 17LH/35RH,24.4265666,46.5865311,osm node/5387095467
@@ -1713,10 +1720,10 @@ tower,,4.504,Riyadh Khashm Alan Air Base 16/34,24.6698157,46.9212759,osm node/53
 chimney,,4.211,unnamed airfield ?,24.5734707,46.8771689,osm node/5389066721
 mast,,3.211,OESN King Salman Airbase Project ?,24.5121494,46.6796556,osm node/5451982684
 mast,,5.742,OESN King Salman Airbase Project ?,24.5353143,46.6829954,osm node/5451982708
-mast,,3.079,OERY Riyadh Air Base (old airport) 01/19,24.7365251,46.6985936,osm node/5541204170
-mast,,3.146,OERY Riyadh Air Base (old airport) 01/19,24.7362084,46.6978721,osm node/5541204171
-mast,,3.087,OERY Riyadh Air Base (old airport) 01/19,24.7352851,46.6983281,osm node/5541204172
-mast,,3.017,OERY Riyadh Air Base (old airport) 01/19,24.7355726,46.6990684,osm node/5541204173
+mast,,1.539,OERY Riyadh Air Base (old airport) 15/33,24.7365251,46.6985936,osm node/5541204170
+mast,,1.502,OERY Riyadh Air Base (old airport) 15/33,24.7362084,46.6978721,osm node/5541204171
+mast,,1.4,OERY Riyadh Air Base (old airport) 15/33,24.7352851,46.6983281,osm node/5541204172
+mast,,1.437,OERY Riyadh Air Base (old airport) 15/33,24.7355726,46.6990684,osm node/5541204173
 mast,,8.507,OERY Riyadh Air Base (old airport) 01/19,24.7947369,46.7910137,osm node/5678583369
 tower,Zain,7.121,OERK King Khalid International Airport 15L/33R,24.9646765,46.7879715,osm node/5678584849
 mast,,7.103,OERK King Khalid International Airport 15L/33R,24.9743756,46.7842335,osm node/5678584863
@@ -1744,19 +1751,22 @@ power pylon,,8.879,Riyadh Khashm Alan Air Base 16/34,24.5347978,46.9449845,osm n
 power pylon,,8.565,Riyadh Khashm Alan Air Base 16/34,24.5371165,46.9424375,osm node/5678652042
 power pylon,,8.216,Riyadh Khashm Alan Air Base 16/34,24.5397244,46.9395795,osm node/5678652043
 mast,,0.933,OERY Riyadh Air Base (old airport) 01/19,24.7361737,46.7199988,osm node/5686407961
-tower,,8.347,OERY Riyadh Air Base (old airport) 01/19,24.7103235,46.6420595,osm node/5999267019
-tower,,8.42,OERY Riyadh Air Base (old airport) 01/19,24.7109369,46.6413843,osm node/5999267020
-tower,,8.78,OERY Riyadh Air Base (old airport) 01/19,24.7161745,46.6384332,osm node/5999267037
-mast,,9.491,OERY Riyadh Air Base (old airport) 01/19,24.6760714,46.6361321,osm node/5999754459
-mast,,9.535,OERY Riyadh Air Base (old airport) 01/19,24.6759301,46.6357297,osm node/5999754460
+tower,,9.744,OERY Riyadh Air Base (old airport) 15/33,24.6733766,46.6180698,osm node/5999081946
+tower,,9.625,OERY Riyadh Air Base (old airport) 15/33,24.6733525,46.619515,osm node/5999081947
+tower,,5.796,OERY Riyadh Air Base (old airport) 15/33,24.7103235,46.6420595,osm node/5999267019
+tower,,5.847,OERY Riyadh Air Base (old airport) 15/33,24.7109369,46.6413843,osm node/5999267020
+tower,,6.04,OERY Riyadh Air Base (old airport) 15/33,24.7161745,46.6384332,osm node/5999267037
+mast,,8.105,OERY Riyadh Air Base (old airport) 15/33,24.6760714,46.6361321,osm node/5999754459
+mast,,8.146,OERY Riyadh Air Base (old airport) 15/33,24.6759301,46.6357297,osm node/5999754460
+tower,,9.789,OERY Riyadh Air Base (old airport) 15/33,24.6722307,46.6183925,osm node/5999818337
 power pylon,,9.798,OERK King Khalid International Airport 15R/33L,25.0224004,46.5960003,osm node/5999963082
 tower,,4.232,Riyadh Khashm Alan Air Base 16/34,24.6669414,46.9237146,osm node/6000097004
 tower,,4.418,Riyadh Khashm Alan Air Base 16/34,24.6682857,46.9254746,osm node/6000097005
 tower,,4.195,Riyadh Khashm Alan Air Base 16/34,24.6657901,46.9271512,osm node/6000097023
 tower,,3.713,Riyadh Khashm Alan Air Base 16/34,24.6617569,46.9253532,osm node/6000097024
 tower,,3.877,Riyadh Khashm Alan Air Base 16/34,24.6624259,46.9282847,osm node/6000097025
-silo,,7.055,OERY Riyadh Air Base (old airport) 01/19,24.6855858,46.6580349,osm node/6000841998
-tower,,4.383,OERY Riyadh Air Base (old airport) 01/19,24.7569011,46.6901182,osm node/6001450963
+silo,,5.759,OERY Riyadh Air Base (old airport) 15/33,24.6855858,46.6580349,osm node/6000841998
+tower,,3.881,OERY Riyadh Air Base (old airport) 15/33,24.7569011,46.6901182,osm node/6001450963
 power pylon,,6.707,OERK King Khalid International Airport 15R/33L,25.0092643,46.6235189,osm node/6003479903
 power pylon,,6.89,OERK King Khalid International Airport 15R/33L,25.009054,46.6210184,osm node/6003479904
 power pylon,,6.637,OERK King Khalid International Airport 15R/33L,25.0058065,46.621469,osm node/6003479905
@@ -1826,8 +1836,11 @@ power pylon,,1.104,OERK King Khalid International Airport 15R/33L,24.948184,46.6
 power pylon,,1.103,OERK King Khalid International Airport 15R/33L,24.9501617,46.6754427,osm node/6003480037
 mast,,1.183,OERK King Khalid International Airport 15R/33L,24.9469303,46.6765678,osm node/6003480038
 power pylon,,1.103,OERK King Khalid International Airport 15R/33L,24.9522061,46.6741553,osm node/6003480039
-power pylon,,9.778,OERY Riyadh Air Base (old airport) 01/19,24.778162,46.6420525,osm node/6003559436
-tower,,9.553,OERY Riyadh Air Base (old airport) 01/19,24.7551283,46.6367629,osm node/6003561002
+power pylon,,8.351,OERY Riyadh Air Base (old airport) 15/33,24.778162,46.6420525,osm node/6003559436
+tower,,7.142,OERY Riyadh Air Base (old airport) 15/33,24.7551283,46.6367629,osm node/6003561002
+tower,,9.305,OERY Riyadh Air Base (old airport) 15/33,24.7512139,46.6111941,osm node/6003561055
+mast,,9.279,OERY Riyadh Air Base (old airport) 15/33,24.751098,46.6114242,osm node/6003561056
+mast,,9.946,OERY Riyadh Air Base (old airport) 15/33,24.7460893,46.6027605,osm node/6003561059
 antenna,,8.423,OERY Riyadh Air Base (old airport) 01/19,24.6473287,46.6705591,osm node/6003729629
 water_tower,,7.737,OERY Riyadh Air Base (old airport) 01/19,24.6425916,46.6908453,osm node/6003729671
 silo,,8.604,OERY Riyadh Air Base (old airport) 01/19,24.6356959,46.686832,osm node/6003729673
@@ -1836,20 +1849,22 @@ tower,,7.435,OERY Riyadh Air Base (old airport) 01/19,24.6431898,46.6966897,osm 
 tower,,7.407,OERY Riyadh Air Base (old airport) 01/19,24.6433312,46.6970491,osm node/6003729848
 tower,,6.878,OERY Riyadh Air Base (old airport) 01/19,24.651425,46.690647,osm node/6003729967
 tower,,6.802,OERY Riyadh Air Base (old airport) 01/19,24.652481,46.6901604,osm node/6003730079
-tower,,6.524,OERY Riyadh Air Base (old airport) 01/19,24.6743528,46.6694882,osm node/6003730241
+tower,,6.089,OERY Riyadh Air Base (old airport) 15/33,24.6743528,46.6694882,osm node/6003730241
 tower,,1.41,OERY Riyadh Air Base (old airport) 01/19,24.7223932,46.7412806,osm node/6004120779
 tower,,1.696,OERY Riyadh Air Base (old airport) 01/19,24.7200299,46.7437784,osm node/6004120881
 tower,,1.385,OERY Riyadh Air Base (old airport) 01/19,24.6960963,46.7150266,osm node/6004121063
-tower,,7.94,OERY Riyadh Air Base (old airport) 01/19,24.6710463,46.6554057,osm node/6004235224
-mast,,8.011,OERY Riyadh Air Base (old airport) 01/19,24.6699226,46.6552767,osm node/6004235225
-tower,,9.74,OERY Riyadh Air Base (old airport) 01/19,24.6554923,46.6450213,osm node/6004235379
-mast,,9.34,OERY Riyadh Air Base (old airport) 01/19,24.6560371,46.6494466,osm node/6004235450
-mast,,9.289,OERY Riyadh Air Base (old airport) 01/19,24.6561249,46.6499937,osm node/6004235451
-antenna,,9.105,OERY Riyadh Air Base (old airport) 01/19,24.6621896,46.6477246,osm node/6004235471
-mast,,9.092,OERY Riyadh Air Base (old airport) 01/19,24.6630915,46.6472686,osm node/6004235472
-water_tower,,7.711,OERY Riyadh Air Base (old airport) 01/19,24.6673145,46.6604858,osm node/6004235553
-tower,,9.451,OERY Riyadh Air Base (old airport) 01/19,24.6579586,46.6466395,osm node/6004235641
-tower,,9.1,OERY Riyadh Air Base (old airport) 01/19,24.6564083,46.6520897,osm node/6004235645
+tower,,7.164,OERY Riyadh Air Base (old airport) 15/33,24.6710463,46.6554057,osm node/6004235224
+mast,,7.273,OERY Riyadh Air Base (old airport) 15/33,24.6699226,46.6552767,osm node/6004235225
+water_tower,,9.6,OERY Riyadh Air Base (old airport) 15/33,24.6535968,46.6408258,osm node/6004235276
+antenna,,9.588,OERY Riyadh Air Base (old airport) 15/33,24.6529717,46.6419635,osm node/6004235360
+tower,,9.18,OERY Riyadh Air Base (old airport) 15/33,24.6554923,46.6450213,osm node/6004235379
+mast,,8.877,OERY Riyadh Air Base (old airport) 15/33,24.6560371,46.6494466,osm node/6004235450
+mast,,8.839,OERY Riyadh Air Base (old airport) 15/33,24.6561249,46.6499937,osm node/6004235451
+antenna,,8.418,OERY Riyadh Air Base (old airport) 15/33,24.6621896,46.6477246,osm node/6004235471
+mast,,8.366,OERY Riyadh Air Base (old airport) 15/33,24.6630915,46.6472686,osm node/6004235472
+water_tower,,7.22,OERY Riyadh Air Base (old airport) 15/33,24.6673145,46.6604858,osm node/6004235553
+tower,,8.862,OERY Riyadh Air Base (old airport) 15/33,24.6579586,46.6466395,osm node/6004235641
+tower,,8.698,OERY Riyadh Air Base (old airport) 15/33,24.6564083,46.6520897,osm node/6004235645
 mast,,5.28,Riyadh Khashm Alan Air Base 16/34,24.6565526,46.8719581,osm node/6013926127
 tower,,6.313,Riyadh Khashm Alan Air Base 16/34,24.6717103,46.8730306,osm node/6013926336
 tower,,6.672,Riyadh Khashm Alan Air Base 16/34,24.6689941,46.8651559,osm node/6013926533
@@ -1935,32 +1950,36 @@ tower,,2.68,OERY Riyadh Air Base (old airport) 01/19,24.6874117,46.7064732,osm n
 tower,,1.405,OERY Riyadh Air Base (old airport) 01/19,24.6962599,46.7145548,osm node/6018583038
 tower,,1.451,OERY Riyadh Air Base (old airport) 01/19,24.6957809,46.7144372,osm node/6018583039
 tower,,6.14,OERY Riyadh Air Base (old airport) 01/19,24.7234243,46.7887407,osm node/6018583177
-tower,,9.629,OERY Riyadh Air Base (old airport) 01/19,24.7045828,46.8206979,osm node/6018583345
-water_tower,,6.881,OERY Riyadh Air Base (old airport) 01/19,24.7103197,46.7941104,osm node/6018583536
-tower,,7.413,OERY Riyadh Air Base (old airport) 01/19,24.7091794,46.79926,osm node/6018583679
-tower,,7.384,OERY Riyadh Air Base (old airport) 01/19,24.7089698,46.7989355,osm node/6018583680
-tower,,7.254,OERY Riyadh Air Base (old airport) 01/19,24.699685,46.7961938,osm node/6018583738
-tower,,7.461,OERY Riyadh Air Base (old airport) 01/19,24.6944605,46.7974304,osm node/6018583750
-mast,,3.707,OERY Riyadh Air Base (old airport) 01/19,24.7039901,46.7613978,osm node/6018583899
-tower,,3.667,OERY Riyadh Air Base (old airport) 01/19,24.7070432,46.7614661,osm node/6018583943
-tower,,2.224,OERY Riyadh Air Base (old airport) 01/19,24.6988898,46.745436,osm node/6018583957
-tower,,2.211,OERY Riyadh Air Base (old airport) 01/19,24.699069,46.7453601,osm node/6018583958
+tower,,9.239,OERY Riyadh Air Base (old airport) 15/33,24.7045828,46.8206979,osm node/6018583345
+water_tower,,6.552,OERY Riyadh Air Base (old airport) 15/33,24.7103197,46.7941104,osm node/6018583536
+tower,,7.068,OERY Riyadh Air Base (old airport) 15/33,24.7091794,46.79926,osm node/6018583679
+tower,,7.035,OERY Riyadh Air Base (old airport) 15/33,24.7089698,46.7989355,osm node/6018583680
+tower,,6.817,OERY Riyadh Air Base (old airport) 15/33,24.699685,46.7961938,osm node/6018583738
+tower,,7.04,OERY Riyadh Air Base (old airport) 15/33,24.6944605,46.7974304,osm node/6018583750
+mast,,3.27,OERY Riyadh Air Base (old airport) 15/33,24.7039901,46.7613978,osm node/6018583899
+tower,,3.25,OERY Riyadh Air Base (old airport) 15/33,24.7070432,46.7614661,osm node/6018583943
+tower,,1.907,OERY Riyadh Air Base (old airport) 15/33,24.6988898,46.745436,osm node/6018583957
+tower,,1.89,OERY Riyadh Air Base (old airport) 15/33,24.699069,46.7453601,osm node/6018583958
 tower,,6.503,OERY Riyadh Air Base (old airport) 01/19,24.6493655,46.7439952,osm node/6018649728
 tower,,6.513,OERY Riyadh Air Base (old airport) 01/19,24.650287,46.7472246,osm node/6018649733
 mast,,6.631,OERY Riyadh Air Base (old airport) 01/19,24.6470609,46.7395759,osm node/6018649734
 tower,,1.327,OERK King Khalid International Airport 15L/33R,24.962291,46.6960804,osm node/6018651486
 tower,,1.332,OERK King Khalid International Airport 15L/33R,24.9625179,46.6958756,osm node/6018651487
 tower,,1.326,OERK King Khalid International Airport 15R/33L,24.962064,46.6956935,osm node/6018651488
+mast,,7.688,OERY Riyadh Air Base (old airport) 15/33,24.7064315,46.6238282,osm node/6018675531
 mast,,7.689,unnamed airfield ?,24.5598778,46.7670846,osm node/6018878639
 tower,,9.297,OERY Riyadh Air Base (old airport) 01/19,24.6214999,46.7232915,osm node/6018878640
+mast,,8.077,OERY Riyadh Air Base (old airport) 15/33,24.7683159,46.6355667,osm node/6018879162
 tower,,5.947,OESN King Salman Airbase Project ?,24.5392925,46.6616746,osm node/6191855948
 tower,,9.463,OESN King Salman Airbase Project ?,24.5660424,46.6324288,osm node/6194559822
 tower,,9.442,OESN King Salman Airbase Project ?,24.5658633,46.632519,osm node/6194559823
 tower,,2.432,unnamed airfield 17LH/35RH,24.4818051,46.6028802,osm node/6205777726
 tower,,2.77,unnamed airfield 17LH/35RH,24.4843113,46.6054951,osm node/6205777727
 tower,,6.721,OESN King Salman Airbase Project ?,24.5464117,46.6654839,osm node/6207255626
-mast,,9.486,OERY Riyadh Air Base (old airport) 01/19,24.723952,46.6325792,osm node/6250054994
-tower,,9.925,OERY Riyadh Air Base (old airport) 01/19,24.7650673,46.6353394,osm node/6292839143
+mast,,7.792,OERY Riyadh Air Base (old airport) 15/33,24.7300072,46.6210802,osm node/6249918046
+mast,,6.589,OERY Riyadh Air Base (old airport) 15/33,24.723952,46.6325792,osm node/6250054994
+tower,,7.874,OERY Riyadh Air Base (old airport) 15/33,24.7650673,46.6353394,osm node/6292839143
+mast,,7.751,OERY Riyadh Air Base (old airport) 15/33,24.7355084,46.6223732,osm node/6293340326
 water_tower,,4.814,unnamed airfield ?,24.5652551,46.7956386,osm node/6975180786
 antenna,,6.171,unnamed airfield ?,24.5332244,46.8580324,osm node/7151725484
 power pylon,,3.046,unnamed airfield 17LH/35RH,24.4923734,46.603696,osm node/7166074156
@@ -2543,14 +2562,14 @@ power pylon,,9.836,unnamed airfield ?,24.2805166,47.3150784,osm node/11284576943
 tower,,6.151,OEPC Pump Station 3 Airport 14/32,25.1457256,47.5529841,osm node/11286257399
 tower,,6.143,OEPC Pump Station 3 Airport 14/32,25.1448531,47.5525099,osm node/11286257400
 antenna,,9.75,OERK King Khalid International Airport 15R/33L,24.8586807,46.7367161,osm node/11519240446
-structure,,8.121,OERY Riyadh Air Base (old airport) 01/19,24.7274841,46.6467811,osm node/11577846531
-structure,,8.073,OERY Riyadh Air Base (old airport) 01/19,24.7242943,46.6467613,osm node/11589647306
+structure,,5.181,OERY Riyadh Air Base (old airport) 15/33,24.7274841,46.6467811,osm node/11577846531
+structure,,5.158,OERY Riyadh Air Base (old airport) 15/33,24.7242943,46.6467613,osm node/11589647306
 tower,,7.417,OERK King Khalid International Airport 15L/33R,24.9899805,46.7785414,osm node/11662266939
 antenna,,4.971,OERK King Khalid International Airport 15R/33L,24.9013108,46.6676484,osm node/12046071709
-tower,,6.553,OERY Riyadh Air Base (old airport) 01/19,24.7395624,46.6643346,osm node/12087073558
-structure,,7.285,OERY Riyadh Air Base (old airport) 01/19,24.7436619,46.657653,osm node/12095448412
+tower,,3.866,OERY Riyadh Air Base (old airport) 15/33,24.7395624,46.6643346,osm node/12087073558
+structure,,4.677,OERY Riyadh Air Base (old airport) 15/33,24.7436619,46.657653,osm node/12095448412
 power pylon,,9.954,unnamed airfield ?,24.2807552,47.3162107,osm node/12255042168
-structure,,9.257,OERY Riyadh Air Base (old airport) 01/19,24.7672341,46.6429288,osm node/12320539046
+structure,,7.432,OERY Riyadh Air Base (old airport) 15/33,24.7672341,46.6429288,osm node/12320539046
 power pylon,,6.178,Riyadh Khashm Alan Air Base 16/34,24.5588592,46.9036013,osm node/12356008018
 power pylon,,6.307,Riyadh Khashm Alan Air Base 16/34,24.5578505,46.9028637,osm node/12356008019
 power pylon,,6.436,Riyadh Khashm Alan Air Base 16/34,24.5568563,46.9020925,osm node/12356008020
@@ -2560,9 +2579,9 @@ power pylon,,6.808,Riyadh Khashm Alan Air Base 16/34,24.5539312,46.9001292,osm n
 power pylon,,6.909,Riyadh Khashm Alan Air Base 16/34,24.5529139,46.9003102,osm node/12356008024
 mast,,1.507,OERK King Khalid International Airport 15R/33L,24.9372867,46.7106063,osm node/12389972559
 mast,,7.226,unnamed airfield 15/33,25.179056,46.4039632,osm node/12495915498
-structure,,9.359,OERY Riyadh Air Base (old airport) 01/19,24.7607862,46.6399326,osm node/12541359707
-structure,,9.214,OERY Riyadh Air Base (old airport) 01/19,24.7637154,46.6422263,osm node/12541359822
-structure,,9.519,OERY Riyadh Air Base (old airport) 01/19,24.7680107,46.6404822,osm node/12541359897
+structure,,7.218,OERY Riyadh Air Base (old airport) 15/33,24.7607862,46.6399326,osm node/12541359707
+structure,,7.233,OERY Riyadh Air Base (old airport) 15/33,24.7637154,46.6422263,osm node/12541359822
+structure,,7.675,OERY Riyadh Air Base (old airport) 15/33,24.7680107,46.6404822,osm node/12541359897
 power pylon,,9.959,unnamed airfield 17H/35H,24.4885106,46.4755427,osm node/12649861518
 power pylon,,9.854,unnamed airfield 17H/35H,24.4866725,46.476398,osm node/12649861519
 power pylon,,9.704,unnamed airfield 17H/35H,24.4839199,46.4776957,osm node/12649861520
@@ -2580,10 +2599,10 @@ structure,,2.31,OESN King Salman Airbase Project ?,24.4885308,46.6889109,osm nod
 structure,,2.305,OESN King Salman Airbase Project ?,24.488683,46.6888439,osm node/12971851733
 communications_tower,برج اتصال,7.83,unnamed airfield ?,24.5740264,46.7607638,osm node/13154460201
 tower,,7.529,unnamed airfield 15/33,25.248625,46.3143649,osm node/13996801547
-tower,,5.147,OERY Riyadh Air Base (old airport) 01/19,24.7167539,46.7777739,osm node/14003629973
-tower,,4.981,OERY Riyadh Air Base (old airport) 01/19,24.7183104,46.7763613,osm node/14003629976
+tower,,4.996,OERY Riyadh Air Base (old airport) 15/33,24.7167539,46.7777739,osm node/14003629973
+tower,,4.895,OERY Riyadh Air Base (old airport) 15/33,24.7183104,46.7763613,osm node/14003629976
 tower,,4.913,OERY Riyadh Air Base (old airport) 01/19,24.7203004,46.7759905,osm node/14003629988
-tower,,5.343,OERY Riyadh Air Base (old airport) 01/19,24.7204393,46.7803048,osm node/14003629991
+tower,,5.34,OERY Riyadh Air Base (old airport) 15/33,24.7204393,46.7803048,osm node/14003629991
 tower,,3.576,unnamed airfield ?,24.5638632,46.811587,osm node/14010816539
 tower,,5.103,unnamed airfield ?,24.5586068,46.7968446,osm node/14010825357
 tower,,5.06,unnamed airfield ?,24.5585084,46.7974543,osm node/14010825358
@@ -2620,54 +2639,55 @@ chimney,,7.986,OERK King Khalid International Airport 15R/33L,24.8694781,46.7191
 chimney,,7.999,OERK King Khalid International Airport 15R/33L,24.8693701,46.7191716,osm node/14046380819
 chimney,,8.013,OERK King Khalid International Airport 15R/33L,24.8692553,46.7192312,osm node/14046380820
 power pylon,,8.366,OERK King Khalid International Airport 15R/33L,24.8634036,46.7057072,osm node/14046380931
-water_tower,,7.011,OERY Riyadh Air Base (old airport) 01/19,24.7108943,46.7955029,osm node/14047687491
-structure,,9.434,OERY Riyadh Air Base (old airport) 01/19,24.7680677,46.6413872,osm node/14051964473
-structure,,9.472,OERY Riyadh Air Base (old airport) 01/19,24.7680169,46.6409735,osm node/14051964474
-structure,,9.527,OERY Riyadh Air Base (old airport) 01/19,24.7682943,46.640499,osm node/14051964499
-structure,,9.638,OERY Riyadh Air Base (old airport) 01/19,24.7675023,46.6390738,osm node/14052030913
-structure,,9.553,OERY Riyadh Air Base (old airport) 01/19,24.7703632,46.6410023,osm node/14052030922
-structure,,9.386,OERY Riyadh Air Base (old airport) 01/19,24.7606635,46.6396245,osm node/14052030928
-structure,,9.438,OERY Riyadh Air Base (old airport) 01/19,24.7604331,46.6390343,osm node/14052030930
-structure,,9.41,OERY Riyadh Air Base (old airport) 01/19,24.7599929,46.6392139,osm node/14052030931
-structure,,9.331,OERY Riyadh Air Base (old airport) 01/19,24.7614957,46.6403978,osm node/14052030935
-structure,,9.368,OERY Riyadh Air Base (old airport) 01/19,24.7621682,46.6402029,osm node/14052030937
-structure,,9.413,OERY Riyadh Air Base (old airport) 01/19,24.7622724,46.6397705,osm node/14052030938
-structure,,9.58,OERY Riyadh Air Base (old airport) 01/19,24.7636055,46.6384369,osm node/14052030952
-structure,,9.67,OERY Riyadh Air Base (old airport) 01/19,24.7642389,46.6377015,osm node/14052030957
-structure,,9.596,OERY Riyadh Air Base (old airport) 01/19,24.7604283,46.6374333,osm node/14052030966
-structure,,9.646,OERY Riyadh Air Base (old airport) 01/19,24.7607286,46.6370038,osm node/14052030970
-structure,,9.653,OERY Riyadh Air Base (old airport) 01/19,24.7608313,46.636955,osm node/14052030974
-structure,,9.686,OERY Riyadh Air Base (old airport) 01/19,24.7620445,46.6369252,osm node/14052030976
-structure,,9.708,OERY Riyadh Air Base (old airport) 01/19,24.7623581,46.6367902,osm node/14052030977
-structure,,9.292,OERY Riyadh Air Base (old airport) 01/19,24.7624496,46.6410534,osm node/14052030991
-structure,,9.249,OERY Riyadh Air Base (old airport) 01/19,24.7623497,46.6414736,osm node/14052030992
-structure,,9.223,OERY Riyadh Air Base (old airport) 01/19,24.7622966,46.6417219,osm node/14052030993
-structure,,9.315,OERY Riyadh Air Base (old airport) 01/19,24.7625444,46.6408464,osm node/14052030995
-structure,,9.15,OERY Riyadh Air Base (old airport) 01/19,24.7632734,46.64275,osm node/14052031003
-structure,,9.303,OERY Riyadh Air Base (old airport) 01/19,24.7637942,46.6413348,osm node/14052031009
-structure,,9.478,OERY Riyadh Air Base (old airport) 01/19,24.7668475,46.6405047,osm node/14053364211
-structure,,9.434,OERY Riyadh Air Base (old airport) 01/19,24.7671512,46.6410608,osm node/14053364227
-structure,,9.449,OERY Riyadh Air Base (old airport) 01/19,24.7668842,46.6408214,osm node/14053364230
-structure,,9.42,OERY Riyadh Air Base (old airport) 01/19,24.7679965,46.6415075,osm node/14053665317
-structure,,9.158,OERY Riyadh Air Base (old airport) 01/19,24.7628135,46.6425274,osm node/14053665323
-structure,,9.375,OERY Riyadh Air Base (old airport) 01/19,24.7646008,46.6408393,osm node/14053893705
-structure,,9.258,OERY Riyadh Air Base (old airport) 01/19,24.7637363,46.6417844,osm node/14053893709
-structure,,9.359,OERY Riyadh Air Base (old airport) 01/19,24.7629841,46.6405291,osm node/14055863705
-structure,,9.354,OERY Riyadh Air Base (old airport) 01/19,24.764416,46.6409963,osm node/14055863710
-structure,,9.413,OERY Riyadh Air Base (old airport) 01/19,24.7632239,46.6400369,osm node/14055863711
-structure,,9.429,OERY Riyadh Air Base (old airport) 01/19,24.7631174,46.639845,osm node/14055863714
-structure,,9.588,OERY Riyadh Air Base (old airport) 01/19,24.7633456,46.6382826,osm node/14055863721
+water_tower,,6.696,OERY Riyadh Air Base (old airport) 15/33,24.7108943,46.7955029,osm node/14047687491
+structure,,7.61,OERY Riyadh Air Base (old airport) 15/33,24.7680677,46.6413872,osm node/14051964473
+structure,,7.638,OERY Riyadh Air Base (old airport) 15/33,24.7680169,46.6409735,osm node/14051964474
+structure,,7.694,OERY Riyadh Air Base (old airport) 15/33,24.7682943,46.640499,osm node/14051964499
+structure,,7.746,OERY Riyadh Air Base (old airport) 15/33,24.7675023,46.6390738,osm node/14052030913
+structure,,7.81,OERY Riyadh Air Base (old airport) 15/33,24.7703632,46.6410023,osm node/14052030922
+structure,,7.235,OERY Riyadh Air Base (old airport) 15/33,24.7606635,46.6396245,osm node/14052030928
+structure,,7.269,OERY Riyadh Air Base (old airport) 15/33,24.7604331,46.6390343,osm node/14052030930
+structure,,7.226,OERY Riyadh Air Base (old airport) 15/33,24.7599929,46.6392139,osm node/14052030931
+structure,,7.227,OERY Riyadh Air Base (old airport) 15/33,24.7614957,46.6403978,osm node/14052030935
+structure,,7.288,OERY Riyadh Air Base (old airport) 15/33,24.7621682,46.6402029,osm node/14052030937
+structure,,7.329,OERY Riyadh Air Base (old airport) 15/33,24.7622724,46.6397705,osm node/14052030938
+structure,,7.526,OERY Riyadh Air Base (old airport) 15/33,24.7636055,46.6384369,osm node/14052030952
+structure,,7.628,OERY Riyadh Air Base (old airport) 15/33,24.7642389,46.6377015,osm node/14052030957
+structure,,7.401,OERY Riyadh Air Base (old airport) 15/33,24.7604283,46.6374333,osm node/14052030966
+structure,,7.456,OERY Riyadh Air Base (old airport) 15/33,24.7607286,46.6370038,osm node/14052030970
+structure,,7.467,OERY Riyadh Air Base (old airport) 15/33,24.7608313,46.636955,osm node/14052030974
+structure,,7.546,OERY Riyadh Air Base (old airport) 15/33,24.7620445,46.6369252,osm node/14052030976
+structure,,7.578,OERY Riyadh Air Base (old airport) 15/33,24.7623581,46.6367902,osm node/14052030977
+structure,,7.238,OERY Riyadh Air Base (old airport) 15/33,24.7624496,46.6410534,osm node/14052030991
+structure,,7.198,OERY Riyadh Air Base (old airport) 15/33,24.7623497,46.6414736,osm node/14052030992
+structure,,7.174,OERY Riyadh Air Base (old airport) 15/33,24.7622966,46.6417219,osm node/14052030993
+structure,,7.261,OERY Riyadh Air Base (old airport) 15/33,24.7625444,46.6408464,osm node/14052030995
+structure,,7.161,OERY Riyadh Air Base (old airport) 15/33,24.7632734,46.64275,osm node/14052031003
+structure,,7.308,OERY Riyadh Air Base (old airport) 15/33,24.7637942,46.6413348,osm node/14052031009
+structure,,7.589,OERY Riyadh Air Base (old airport) 15/33,24.7668475,46.6405047,osm node/14053364211
+structure,,7.568,OERY Riyadh Air Base (old airport) 15/33,24.7671512,46.6410608,osm node/14053364227
+structure,,7.567,OERY Riyadh Air Base (old airport) 15/33,24.7668842,46.6408214,osm node/14053364230
+structure,,7.596,OERY Riyadh Air Base (old airport) 15/33,24.7679965,46.6415075,osm node/14053665317
+structure,,7.146,OERY Riyadh Air Base (old airport) 15/33,24.7628135,46.6425274,osm node/14053665323
+structure,,7.403,OERY Riyadh Air Base (old airport) 15/33,24.7646008,46.6408393,osm node/14053893705
+structure,,7.269,OERY Riyadh Air Base (old airport) 15/33,24.7637363,46.6417844,osm node/14053893709
+structure,,7.316,OERY Riyadh Air Base (old airport) 15/33,24.7629841,46.6405291,osm node/14055863705
+structure,,7.378,OERY Riyadh Air Base (old airport) 15/33,24.764416,46.6409963,osm node/14055863710
+structure,,7.372,OERY Riyadh Air Base (old airport) 15/33,24.7632239,46.6400369,osm node/14055863711
+structure,,7.38,OERY Riyadh Air Base (old airport) 15/33,24.7631174,46.639845,osm node/14055863714
+structure,,7.521,OERY Riyadh Air Base (old airport) 15/33,24.7633456,46.6382826,osm node/14055863721
 structure,,1.313,OERK King Khalid International Airport 15L/33R,24.9409881,46.7102833,osm node/14057010971
-structure,,9.343,OERY Riyadh Air Base (old airport) 01/19,24.7612585,46.6402124,osm node/14057083052
-structure,,9.552,OERY Riyadh Air Base (old airport) 01/19,24.7680401,46.640154,osm node/14058553843
-structure,,9.306,OERY Riyadh Air Base (old airport) 01/19,24.7636427,46.641258,osm node/14058624347
-structure,,9.353,OERY Riyadh Air Base (old airport) 01/19,24.7630294,46.6406001,osm node/14058624348
-structure,,9.369,OERY Riyadh Air Base (old airport) 01/19,24.7652088,46.6410982,osm node/14058752627
-structure,,9.428,OERY Riyadh Air Base (old airport) 01/19,24.7645443,46.6402752,osm node/14060967352
-structure,,9.235,OERY Riyadh Air Base (old airport) 01/19,24.7674501,46.6432419,osm node/14074359242
-structure,,9.262,OERY Riyadh Air Base (old airport) 01/19,24.7672813,46.6429001,osm node/14074359272
-structure,,9.204,OERY Riyadh Air Base (old airport) 01/19,24.7666262,46.6432736,osm node/14074434138
-structure,,9.179,OERY Riyadh Air Base (old airport) 01/19,24.7667282,46.6435628,osm node/14074434140
+structure,,7.226,OERY Riyadh Air Base (old airport) 15/33,24.7612585,46.6402124,osm node/14057083052
+structure,,8.702,OERY Riyadh Air Base (old airport) 15/33,24.6830357,46.623531,osm node/14058147458
+structure,,7.702,OERY Riyadh Air Base (old airport) 15/33,24.7680401,46.640154,osm node/14058553843
+structure,,7.304,OERY Riyadh Air Base (old airport) 15/33,24.7636427,46.641258,osm node/14058624347
+structure,,7.314,OERY Riyadh Air Base (old airport) 15/33,24.7630294,46.6406001,osm node/14058624348
+structure,,7.426,OERY Riyadh Air Base (old airport) 15/33,24.7652088,46.6410982,osm node/14058752627
+structure,,7.444,OERY Riyadh Air Base (old airport) 15/33,24.7645443,46.6402752,osm node/14060967352
+structure,,7.425,OERY Riyadh Air Base (old airport) 15/33,24.7674501,46.6432419,osm node/14074359242
+structure,,7.438,OERY Riyadh Air Base (old airport) 15/33,24.7672813,46.6429001,osm node/14074359272
+structure,,7.361,OERY Riyadh Air Base (old airport) 15/33,24.7666262,46.6432736,osm node/14074434138
+structure,,7.347,OERY Riyadh Air Base (old airport) 15/33,24.7667282,46.6435628,osm node/14074434140
 mast,,6.622,OESN King Salman Airbase Project ?,24.5010138,46.7295663,osm node/14076462535
 tower,,7.258,OESN King Salman Airbase Project ?,24.5174272,46.729102,osm node/14076468160
 tower,,7.348,OESN King Salman Airbase Project ?,24.5174973,46.7300699,osm node/14076468161
@@ -2678,7 +2698,7 @@ mast,,8.558,OESN King Salman Airbase Project ?,24.5201586,46.7420185,osm node/14
 mast,,4.284,unnamed airfield ?,24.5568373,46.8094515,osm node/14076500534
 mast,,4.701,unnamed airfield ?,24.5527716,46.8083354,osm node/14076500537
 mast,,7.496,OESN King Salman Airbase Project ?,24.5010464,46.7384545,osm node/14076503490
-structure,,9.262,OERY Riyadh Air Base (old airport) 01/19,24.7677918,46.643082,osm node/14085145726
+structure,,7.462,OERY Riyadh Air Base (old airport) 15/33,24.7677918,46.643082,osm node/14085145726
 tower,,8.188,unnamed airfield 17H/35H,24.5503284,46.5505223,osm node/14110800231
 mast,,0.864,OERK King Khalid International Airport 15R/33L,24.9606787,46.6912803,osm node/14227238665
 mast,,0.863,OERK King Khalid International Airport 15R/33L,24.9610629,46.6910335,osm node/14227238666
@@ -2686,11 +2706,5 @@ mast,,0.787,OERK King Khalid International Airport 15R/33L,24.9609365,46.6902396
 mast,,0.837,OERK King Khalid International Airport 15R/33L,24.9611565,46.6906701,osm node/14227238668
 mast,,0.76,OERK King Khalid International Airport 15R/33L,24.9602155,46.6903858,osm node/14227238669
 mast,,0.76,OERK King Khalid International Airport 15R/33L,24.9606039,46.6901404,osm node/14227238670
-structure,,7.293,OERY Riyadh Air Base (old airport) 01/19,24.7425864,46.657399,osm node/14356538047
-silo,,3.5,OERY Riyadh Air Base (old airport) 01/19,24.6752884,46.736071,osm way/154470949
-silo,,1.741,unnamed airfield ?,24.5980604,46.8187761,osm way/331462289
-silo,,1.655,unnamed airfield ?,24.5971749,46.8193982,osm way/331462290
-silo,,1.66,unnamed airfield ?,24.5978674,46.8195722,osm way/331462291
-silo,,1.801,unnamed airfield ?,24.5982675,46.8178546,osm way/331462292
-tower,,4.338,OERY Riyadh Air Base (old airport) 01/19,24.7757514,46.751436,osm way/384194286
-structure,,9.323,OERY Riyadh Air Base (old airport) 01/19,24.7610193,46.6401976,osm way/1355137718
+structure,,4.641,OERY Riyadh Air Base (old airport) 15/33,24.7425864,46.657399,osm node/14356538047
+structure,,7.2,OERY Riyadh Air Base (old airport) 15/33,24.7610193,46.6401976,osm way/1355137718

@@ -2,7 +2,7 @@
    $ osmium extract -b 45.3,23.5,48.1,26.200000000000003 gcc-states-latest.osm.pbf -o osm_work/region.osm.pbf --overwrite -s smart
    $ osmium tags-filter osm_work/region.osm.pbf nwr/building:levels nwr/height nwr/est_height nwr/man_made=tower,mast,chimney,water_tower,communications_tower,antenna,crane,silo,flagpole nwr/tower:type n/power=tower nwr/aerialway=pylon nwr/aeroway=runway,aerodrome -o osm_work/filtered.osm.pbf --overwrite
    $ osmium export osm_work/filtered.osm.pbf -f geojsonseq -a type,id -o osm_work/features.geojsonseq --overwrite
-   25,307 OSM features exported
+   25,307 OSM features exported, 23,816 distinct objects
    16 runways of 800 m or longer from OSM (11 shorter strips ignored)
    OERK King Khalid International Airport 15R/33L open 4212 m [osm way/4472275]
    OERK King Khalid International Airport 15L/33R open 3511 m [osm way/8422451]
@@ -21,22 +21,21 @@
    OESN King Salman Airbase Project ? open 4012 m [osm way/1308150621]
    unnamed airfield 15/33 open 2948 m [osm way/1565831749]
    OERY Riyadh Air Base (old airport) 01/19 open 0 m [OurAirports]
+   OERY Riyadh Air Base (old airport) 15/33 closed 0 m [OurAirports]
    search box: lon 45.936..47.946, lat 23.845..25.673
 2) OpenStreetMap buildings and structures
-   14,974 OSM objects (2,191 with height tag, 658 with floors only)
+   13,562 OSM objects (1,121 with height tag, 333 with floors only)
 3) Overture Maps buildings
   Overture release 2026-10-21.0
     482 Overture buildings with height/floors in area, 0 non-OSM kept
 4) GlobalBuildingAtlas (fallback)
   2,211 GBA buildings (above 15 m) loaded from ../../results/gba_obstacles.shp
 5) Merging overlapping footprints
-/home/runner/work/kashifrazi338.github.io/kashifrazi338.github.io/tools/riyadh_obstacles/riyadh_obstacles.py:86: DeprecationWarning: The 'shapely.ops.transform()' function is deprecated. Use 'shapely.transform()' or 'shapely.transform_coordseq()' instead. See https://shapely.readthedocs.io/en/latest/manual.html#shapely.ops.transform for more details.
-  return transform(lambda x, y, z=None: self.fwd(x, y), g)
-   16,193 distinct objects
+   14,781 distinct objects
 6) Applying runway rules
 
-RESULT: 2,330 obstacles - 2,312 within 10 km above 15 m, 18 at 10-45 km of 46 m and above; 2,695 pylons/towers without height inside 10 km listed separately
-   by height source: GlobalBuildingAtlas LoD1 estimate: 2029, OSM height tag: 122, OSM 5 floors x 3.5 m: 54, OSM 7 floors x 3.5 m: 24, OSM 20 floors x 3.5 m: 20, OSM 6 floors x 3.5 m: 20, OSM 8 floors x 3.5 m: 12, OSM 15 floors x 3.5 m: 8, OSM 24 floors x 3.5 m: 6, OSM 9 floors x 3.5 m: 5, OSM 17 floors x 3.5 m: 3, OSM 67 floors x 3.5 m: 2, OSM 45 floors x 3.5 m: 2, OSM 40 floors x 3.5 m: 2, OSM 33 floors x 3.5 m: 2, OSM 28 floors x 3.5 m: 2, OSM 23 floors x 3.5 m: 2, OSM 21 floors x 3.5 m: 2, OSM 19 floors x 3.5 m: 2, OSM 16 floors x 3.5 m: 2, OSM 14 floors x 3.5 m: 2, OSM 10 floors x 3.5 m: 2, OSM 44 floors x 3.5 m: 1, OSM 25 floors x 3.5 m: 1, OSM 18 floors x 3.5 m: 1, OSM 12 floors x 3.5 m: 1, OSM 11 floors x 3.5 m: 1
+RESULT: 2,252 obstacles - 2,246 within 10 km above 15 m, 6 at 10-45 km of 46 m and above; 2,709 pylons/towers without height inside 10 km listed separately
+   by height source: GlobalBuildingAtlas LoD1 estimate: 2100, OSM height tag: 63, OSM 5 floors x 3.5 m: 27, OSM 7 floors x 3.5 m: 12, OSM 20 floors x 3.5 m: 10, OSM 6 floors x 3.5 m: 10, OSM 8 floors x 3.5 m: 6, OSM 24 floors x 3.5 m: 3, OSM 15 floors x 3.5 m: 3, OSM 10 floors x 3.5 m: 2, OSM 9 floors x 3.5 m: 2, OSM 67 floors x 3.5 m: 1, OSM 45 floors x 3.5 m: 1, OSM 44 floors x 3.5 m: 1, OSM 40 floors x 3.5 m: 1, OSM 33 floors x 3.5 m: 1, OSM 28 floors x 3.5 m: 1, OSM 23 floors x 3.5 m: 1, OSM 21 floors x 3.5 m: 1, OSM 19 floors x 3.5 m: 1, OSM 17 floors x 3.5 m: 1, OSM 16 floors x 3.5 m: 1, OSM 14 floors x 3.5 m: 1, OSM 12 floors x 3.5 m: 1, OSM 11 floors x 3.5 m: 1
 
 Validation against known structures (nearest selected object within 250 m):
    Kingdom Centre         published 302 m -> 302.0 m [OSM height tag] 'Kingdom Centre' 0-10 km, >15 m
@@ -46,28 +45,28 @@ Validation against known structures (nearest selected object within 250 m):
    Riyadh TV Tower        published 170 m -> 25.9 m [GlobalBuildingAtlas LoD1 estimate] '' 0-10 km, >15 m
 
 Top 25:
-    385.0 m    9.25 km  OSM height tag                           building       PIF Tower
-    385.0 m    9.25 km  OSM height tag                           building       PIF Tower
-    308.0 m   11.35 km  OSM height tag                           building       Burj Rafal
-    308.0 m   11.35 km  OSM height tag                           building       Burj Rafal
-    304.0 m    9.32 km  OSM height tag                           building       KAFD World Trade Center
-    304.0 m    9.32 km  OSM height tag                           building       KAFD World Trade Center
-    302.0 m    4.96 km  OSM height tag                           building part  Kingdom Centre
-    302.0 m    5.07 km  OSM height tag                           building part  
-    302.0 m    5.13 km  OSM height tag                           building part  
-    267.0 m    4.28 km  OSM height tag                           building       Al Faisaliyah Tower
-    267.0 m    4.29 km  OSM height tag                           building       Al Faisaliyah Tower
-    264.0 m    9.24 km  OSM height tag                           building       Riyad Bank HQ
-    264.0 m    9.24 km  OSM height tag                           building       Riyad Bank HQ
-    258.0 m   14.22 km  OSM height tag                           building       Tamkeen Tower
-    258.0 m   14.22 km  OSM height tag                           building       Tamkeen Tower
-    244.0 m    7.03 km  OSM height tag                           building       Al Majdoul Tower
-    244.0 m    7.03 km  OSM height tag                           building       Al Majdoul Tower
-    234.5 m    9.31 km  OSM 67 floors x 3.5 m                    building       
-    234.5 m    9.31 km  OSM 67 floors x 3.5 m                    building       
-    231.0 m    9.15 km  OSM height tag                           building       Saudi National Bank HQ
-    231.0 m    9.15 km  OSM height tag                           building       Saudi National Bank HQ
-    213.0 m    6.62 km  OSM height tag                           building       
-    213.0 m    6.62 km  OSM height tag                           building       
-    205.0 m    7.76 km  OSM height tag                           building       Al Rajhi Bank Tower
-    205.0 m    5.07 km  OSM height tag                           building part  Kingdom Centre
+    385.0 m    7.26 km  OSM height tag                           building       PIF Tower
+    308.0 m   10.16 km  OSM height tag                           building       Burj Rafal
+    304.0 m    7.28 km  OSM height tag                           building       KAFD World Trade Center
+    302.0 m    2.54 km  OSM height tag                           building part  Kingdom Centre
+    267.0 m    3.73 km  OSM height tag                           building       Al Faisaliyah Tower
+    264.0 m    7.19 km  OSM height tag                           building       Riyad Bank HQ
+    258.0 m   13.50 km  OSM height tag                           building       Tamkeen Tower
+    244.0 m    4.28 km  OSM height tag                           building       Al Majdoul Tower
+    234.5 m    7.26 km  OSM 67 floors x 3.5 m                    building       
+    231.0 m    7.12 km  OSM height tag                           building       Saudi National Bank HQ
+    213.0 m    3.68 km  OSM height tag                           building       
+    205.0 m    5.37 km  OSM height tag                           building       Al Rajhi Bank Tower
+    203.0 m    3.15 km  OSM height tag                           building       Olaya Tower 1
+    200.0 m    5.39 km  OSM height tag                           building       برج النخيل
+    200.0 m    7.16 km  OSM height tag                           building       Tadawul Tower
+    195.0 m   26.83 km  OSM height tag                           structure      
+    182.0 m    7.78 km  OSM height tag                           building       
+    170.0 m    7.46 km  OSM height tag                           tower          Riyadh TV Tower
+    166.0 m    3.20 km  OSM height tag                           building       Olaya Tower 2
+    160.0 m    7.58 km  OSM height tag                           building       
+    157.5 m    3.70 km  OSM 45 floors x 3.5 m                    building part  
+    155.0 m    2.85 km  OSM height tag                           building       Al Anoud Tower
+    155.0 m    3.33 km  OSM height tag                           building       Boudl Tower
+    154.0 m    7.31 km  OSM 44 floors x 3.5 m                    building       
+    150.0 m    7.50 km  OSM height tag                           building part  
