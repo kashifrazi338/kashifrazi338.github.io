@@ -1,0 +1,17 @@
+OSM
+   $ osmium extract -b 48.0995,15.2904,49.4783,16.6305 yemen-latest.osm.pbf -o osm_work/region.osm.pbf --overwrite -s smart
+   $ osmium tags-filter osm_work/region.osm.pbf nwr/building:levels nwr/height nwr/est_height nwr/man_made=tower,mast,chimney,water_tower,communications_tower,antenna,crane,silo,flagpole nwr/tower:type n/power=tower nwr/aerialway=pylon nwr/aeroway=runway,aerodrome -o osm_work/filtered.osm.pbf --overwrite
+   $ osmium export osm_work/filtered.osm.pbf -f geojsonseq -a type,id -o osm_work/features.geojsonseq --overwrite
+   44 OSM features exported, 39 distinct objects
+Overture
+  Overture release 2026-10-21.0
+    0 Overture buildings with height/floors in area, 0 non-OSM kept
+GBA
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Listing GBA files on Hugging Face ...
+  downloading zhu-xlab/GBA.LoD1/LoD1/africa/e045_n20_e050_n15.json (large files take a while) ...
+  downloading zhu-xlab/GBA.LoD1/Polygon/africa/e045_n20_e050_n15.geojson (large files take a while) ...
+  downloading zhu-xlab/GBA.ODbLPolygon/africa/e045_n20_e050_n15.geojson (large files take a while) ...
+   e045_n20_e050_n15 [africa]: 359,635 GBA heights
+   9,902 GBA footprints in box
+DONE 9,904 objects; GlobalBuildingAtlas LoD1 estimate: 9902, OSM: 2
