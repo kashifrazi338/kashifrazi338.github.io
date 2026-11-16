@@ -1,3 +1,2 @@
-# name  osm_extract_url  W S E N   (one box per line; used when the workflow runs on push)
-aden    https://download.geofabrik.de/asia/yemen-latest.osm.pbf  44.9988 12.8037 45.0645 12.8522
-seiyun  https://download.geofabrik.de/asia/yemen-latest.osm.pbf  48.7495 15.9404 48.8283 15.9805
+# name  osm_extract_url  W S E N
+minarets  https://download.geofabrik.de/asia/gcc-states-latest.osm.pbf  46.655 24.683 46.686 24.695
