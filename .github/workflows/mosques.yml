@@ -1,0 +1,24 @@
+name: Mosques and minarets from OSM
+on:
+  push:
+    branches: [gba-obstacles]
+    paths: ["tools/mosques/**", ".github/workflows/mosques.yml"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -q && sudo apt-get install -y -q osmium-tool
+      - working-directory: tools/mosques
+        run: |
+          curl -sSfL -o gcc.osm.pbf https://download.geofabrik.de/asia/gcc-states-latest.osm.pbf
+          mkdir -p out
+          python mosques.py gcc.osm.pbf 46.60 24.55 46.91 24.83 out/mosques.geojson 2>&1 | tee out/log.txt
+      - name: Commit
+        run: |
+          rm -rf results_mosques && mkdir -p results_mosques && cp -r tools/mosques/out/. results_mosques/
+          git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results_mosques && (git commit -m "Mosques from OSM, run ${{ github.run_id }} [skip ci]" || true) && (git push || (git pull --rebase && git push))
