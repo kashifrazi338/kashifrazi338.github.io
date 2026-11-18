@@ -1,7 +1,7 @@
 6 points read; image 1200 x 1200 px, 0.50 x 0.50 m per pixel
-Shadow direction detected from 2 image windows: 300 deg
+Shadow direction detected from 6 image windows: 300 deg
 Sun elevation used: 50.00 deg  (entered by user (metadata))
-Done: 6 of 6 points measured above the minimum, 0 flagged for checking. Outputs in exe_test\selftest_output
+Done: 6 rows (6 ok). Outputs in exe_test\selftest_output
    shadow_heights.csv, shadow_heights_points.shp, shadow_heights_shadow_lines.shp, shadow_heights.kml, shadow_heights_review.jpg
   tower true 20 m -> measured 19.7 m
   tower true 28 m -> measured 28.0 m
@@ -10,9 +10,28 @@ Done: 6 of 6 points measured above the minimum, 0 flagged for checking. Outputs 
   tower true 45 m -> measured 45.3 m
   tower true 24 m -> measured 23.8 m
 6 points read; image 1200 x 1200 px, 0.50 x 0.50 m per pixel
-Shadow direction detected from 2 image windows: 300 deg
+Shadow direction detected from 6 image windows: 300 deg
 Sun elevation used: 50.00 deg  (entered by user (metadata))
-Done: 6 of 6 points measured above the minimum, 0 flagged for checking. Outputs in exe_test\selftest_output_jp2
+Done: 6 rows (6 ok). Outputs in exe_test\selftest_output_jp2
    shadow_heights.csv, shadow_heights_points.shp, shadow_heights_shadow_lines.shp, shadow_heights.kml, shadow_heights_review.jpg
 JP2 read test: max error 0.3 m
+Image 1200 x 1200 px, 0.50 x 0.50 m per pixel
+6 mosques inside the image (selftest_mosques.csv)
+Shadow direction detected from 6 image windows: 300 deg
+Sun elevation used: 50.00 deg  (entered by user (metadata))
+6 candidate minaret shadows at or above 10 m around 6 mosques (6 likely). Open the review sheet and delete the ones that are not minarets (walls and gaps between buildings look similar).
+Done: 6 rows (6 likely). Outputs in exe_test\selftest_mosque
+   minaret_scan_heights.csv, minaret_scan_heights_points.shp, minaret_scan_heights_shadow_lines.shp, minaret_scan_heights.kml, minaret_scan_heights_review.jpg
+mosque search: found 6 of 6 towers, heights [17.9, 20.3, 23.8, 28.0, 35.2, 45.3] OK
+Image 1200 x 1200 px, 0.50 x 0.50 m per pixel
+Shadow direction detected from 25 image windows: 300 deg
+Sun elevation used: 50.00 deg  (entered by user (metadata))
+Looking for thin shadows 7.6-80 m long (objects above about 10 m)
+6 separate thin shadows found
+6 objects at or above 10 m (6 ok, 0 to check)
+Done: 6 rows (6 ok). Outputs in exe_test\selftest_whole-image
+   auto_scan_heights.csv, auto_scan_heights_points.shp, auto_scan_heights_shadow_lines.shp, auto_scan_heights.kml, auto_scan_heights_review.jpg
+whole-image scan: found 6 of 6 towers, heights [17.9, 20.3, 23.8, 27.4, 34.6, 44.7] OK
+Built-in mosque list: 21003 mosques OK
 SELFTEST PASSED max error 0.3 m
+GUI OK
