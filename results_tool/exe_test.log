@@ -1,0 +1,18 @@
+6 points read; image 1200 x 1200 px, 0.50 x 0.50 m per pixel
+Shadow direction detected from 2 image windows: 300 deg
+Sun elevation used: 50.00 deg  (entered by user (metadata))
+Done: 6 of 6 points measured above the minimum, 0 flagged for checking. Outputs in exe_test\selftest_output
+   shadow_heights.csv, shadow_heights_points.shp, shadow_heights_shadow_lines.shp, shadow_heights.kml, shadow_heights_review.jpg
+  tower true 20 m -> measured 19.7 m
+  tower true 28 m -> measured 28.0 m
+  tower true 35 m -> measured 35.2 m
+  tower true 18 m -> measured 17.9 m
+  tower true 45 m -> measured 45.3 m
+  tower true 24 m -> measured 23.8 m
+6 points read; image 1200 x 1200 px, 0.50 x 0.50 m per pixel
+Shadow direction detected from 2 image windows: 300 deg
+Sun elevation used: 50.00 deg  (entered by user (metadata))
+Done: 6 of 6 points measured above the minimum, 0 flagged for checking. Outputs in exe_test\selftest_output_jp2
+   shadow_heights.csv, shadow_heights_points.shp, shadow_heights_shadow_lines.shp, shadow_heights.kml, shadow_heights_review.jpg
+JP2 read test: max error 0.3 m
+SELFTEST PASSED max error 0.3 m
