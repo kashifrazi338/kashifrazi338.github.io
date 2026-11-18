@@ -844,8 +844,10 @@ def run_mosques(opt, log=print, progress=lambda f: None, stop=lambda: False):
     else:
         C0, R0, C1, R1 = 0, 0, img.ds.width, img.ds.height
     inside = []
+    # the built-in list is OpenStreetMap (true WGS84, like the image); a file of yours is in your reference frame
+    sdn, sde = (dn, de) if opt.get("mosques") else (0.0, 0.0)
     for la, lo, rad in sites:
-        c, r = img.to_pixel(la - dn / 110700.0, lo - de / (111320.0 * math.cos(la * D2R)))
+        c, r = img.to_pixel(la - sdn / 110700.0, lo - sde / (111320.0 * math.cos(la * D2R)))
         if C0 <= c < C1 and R0 <= r < R1:
             inside.append((la, lo, rad, c, r))
     log(f"{len(inside)} mosques inside the {'area' if opt.get('area') else 'image'} "
@@ -853,11 +855,15 @@ def run_mosques(opt, log=print, progress=lambda f: None, stop=lambda: False):
     if not inside:
         raise ValueError("No mosques fall inside the image / area.")
     shaz = opt.get("shadow_az")
+    spread = opt.get("spread", 20)
+    la_c = float(np.mean([x[0] for x in inside])); lo_c = float(np.mean([x[1] for x in inside]))
     if shaz is None:
         shaz = detect_shadow_azimuth(img, [(int(c), int(r)) for *_, c, r in inside], log)
         if shaz is None:
             raise ValueError("Could not detect the shadow direction; enter it manually.")
-    la_c = float(np.mean([x[0] for x in inside])); lo_c = float(np.mean([x[1] for x in inside]))
+        # the image-based estimate can be 20 deg off in dense blocks: search a wide fan around it
+        spread = opt.get("spread", 35)
+        log("Tip: enter the shadow direction (sun azimuth from the metadata + 180) for faster, cleaner results.")
     el, el_src = sun_for_scan(opt, img, shaz, dn, de, la_c, lo_c, log)
     log(f"Sun elevation used: {el:.2f} deg  ({el_src})")
     tan = math.tan(el * D2R)
@@ -870,7 +876,7 @@ def run_mosques(opt, log=print, progress=lambda f: None, stop=lambda: False):
             raise ValueError("Stopped by user.")
         progress(i / len(inside))
         search = min(90.0, rad + 12.0)
-        cs = find_streak(img, c, r, shaz, search, opt["max_shadow_m"], spread=opt.get("spread", 25), collect=True, min_len=min_len)
+        cs = find_streak(img, c, r, shaz, search, opt["max_shadow_m"], spread=spread, collect=True, min_len=min_len)
         # thin streaks (< 1.3 m) are mostly gaps between buildings, kerbs or fences, not minarets
         cs = [x for x in cs if x["width_m"] >= AUTO_MIN_WIDTH]
         for x in cs:
@@ -1038,7 +1044,7 @@ def gui():
     ttk.Label(lf, text="time HH:MM (optional)").grid(row=2, column=2, sticky="e"); ttk.Entry(lf, textvariable=v["time"], width=7).grid(row=2, column=3, sticky="w")
     ttk.Label(lf, text="time zone (h from UTC)").grid(row=3, column=2, sticky="e"); ttk.Entry(lf, textvariable=v["tz"], width=7).grid(row=3, column=3, sticky="w")
     of = ttk.LabelFrame(frm, text="Options", padding=8); of.grid(row=8, column=0, columnspan=3, sticky="we")
-    opts = (("Shadow direction deg (blank = detect)", "az"), ("Search radius around each point (m)", "search"), ("Longest shadow (m)", "maxsh"),
+    opts = (("Shadow dir. deg (sun azimuth+180; blank=detect)", "az"), ("Search radius around each point (m)", "search"), ("Longest shadow (m)", "maxsh"),
             ("Report heights above (m)", "minh"), ("Your data minus image, north (m)", "dn"), ("Your data minus image, east (m)", "de"))
     for i, (lab, k) in enumerate(opts):
         ttk.Label(of, text=lab).grid(row=i // 2, column=(i % 2) * 2, sticky="w", padx=4, pady=2)

@@ -23,11 +23,16 @@ THREE MODES ("What to do" at the top of the window)
                                               hundreds of false hits (gaps between buildings look the same).
 
 IMPORTANT FOR THE AUTOMATIC MODES - ALWAYS CHECK THE REVIEW SHEET
-In dense Riyadh blocks, narrow gaps between buildings cast thin shadows exactly like minarets.
-Test on Riyadh imagery (56 mosques, 25 checked minarets): the minaret search found 21 of the 25.
-About 1 in 3 "likely" results and 1 in 12 "possible" results is a real minaret; the rest are walls/gaps.
-So: open <name>_review.jpg, look at each chip, and delete the wrong rows (by NAME) in the CSV/shapefile.
-For final, accurate heights run mode 1 on the confirmed points.
+In dense Riyadh blocks, narrow gaps between buildings and wall edges cast thin shadows exactly like minarets,
+so the automatic list contains many false candidates (often more false than true).
+Test on the Riyadh K763X53392 clip (349 mosques from the built-in list, 25 minarets checked by hand):
+   shadow direction entered : 23 of 25 minarets found (19 marked "likely"), 476 candidates in total
+   shadow direction detected: 19 of 25 found, 521 candidates
+   found heights agreed with the hand-checked ones within 0.5 m in most cases.
+So: 1) ENTER THE SHADOW DIRECTION (sun azimuth from the image metadata + 180) - finds more, fewer false hits;
+    2) open minaret_scan_heights_review.jpg, look at each chip, delete the wrong rows (by NAME) in the CSV/shapefile;
+    3) for final heights you may re-run mode 1 on the confirmed points.
+The built-in mosque list is OpenStreetMap: mosques missing there are not searched - use your own mosques file.
 
 INPUTS
 Image   GeoTIFF (.tif) or JPEG 2000 (.jp2), georeferenced, 0.3-0.6 m pixels work best.
@@ -71,5 +76,5 @@ COMMAND LINE (optional)
   ShadowHeightBatch.exe --scan --image clip.tif --out results --sun-elev 61.9 [--area area.kml]
   ShadowHeightBatch.exe --selftest test_folder     (checks the installation: must end with SELFTEST PASSED)
 
-SPEED: mode 1 ~1 s per point; mode 2 ~2-3 s per mosque; mode 3 ~3 s per 0.25 km2.
+SPEED: mode 1 ~1 s per point; mode 2 ~3-6 s per mosque (350 mosques ~ 20-35 min); mode 3 ~3 s per 0.25 km2.
 ACCURACY: typically +/- 2-3 m for clear, unobstructed shadows.
