@@ -32,9 +32,11 @@ import shapefile
 from PIL import Image, ImageDraw, ImageFont
 
 APP = "Shadow Height Batch"
-VERSION = "1.0"
+VERSION = "2.0"
 D2R, R2D = math.pi / 180.0, 180.0 / math.pi
 FT = 3.28084
+# automatic modes: minaret / mast shadows are 1.4-2.5 m wide; gaps between buildings and kerb lines are thinner
+AUTO_MIN_WIDTH, AUTO_OK_WIDTH = 1.3, 1.4
 
 
 # ======================================================================= solar position (NOAA)
@@ -252,13 +254,17 @@ class Img:
 
     def read(self, col, row, half):
         c0, r0 = int(col - half), int(row - half)
-        w = Window(c0, r0, 2 * half, 2 * half)
-        a = self.ds.read(self.bands, window=w, boundless=False) if (c0 >= 0 and r0 >= 0 and c0 + 2 * half <= self.ds.width and r0 + 2 * half <= self.ds.height) else None
-        if a is None:
+        # read the part that lies inside the image; pad the rest bright (never looks like shadow)
+        ic0, ir0 = max(0, c0), max(0, r0)
+        ic1, ir1 = min(self.ds.width, c0 + 2 * half), min(self.ds.height, r0 + 2 * half)
+        if ic1 - ic0 < half or ir1 - ir0 < half:
             return None, c0, r0
-        a = a.astype(np.float32)
-        if a.max() > 255:
-            a = a / max(1.0, np.percentile(a, 99.5)) * 255.0
+        part = self.ds.read(self.bands, window=Window(ic0, ir0, ic1 - ic0, ir1 - ir0)).astype(np.float32)
+        if part.max() > 255:
+            part = part / max(1.0, np.percentile(part, 99.5)) * 255.0
+        part[:, (part <= 0).all(0)] = 255.0                    # no-data pixels
+        a = np.full((part.shape[0], 2 * half, 2 * half), 255.0, np.float32)
+        a[:, ir0 - r0:ir1 - r0, ic0 - c0:ic1 - c0] = part
         if a.shape[0] == 1:
             a = np.repeat(a, 3, 0)
         return a, c0, r0
@@ -308,15 +314,15 @@ def detect_shadow_azimuth(img, pix_points, log):
 
 
 # ======================================================================= thin-shadow streak search
-def find_streak(img, col, row, shaz, search_m, max_m, spread=25, step=2, dist_weight=2.0):
+def find_streak(img, col, row, shaz, search_m, max_m, spread=25, step=2, dist_weight=2.0, collect=False, min_len=4.0):
     """Longest thin dark streak along ~shaz starting within search_m of the point.
     Returns dict(length_m, width_m, az, start=(col,row), end=(col,row)) or None."""
     half = int((search_m + max_m + 10) / img.pm)
     a, c0, r0 = img.read(col, row, half)
     if a is None:
-        return None
+        return [] if collect else None
     L = a.mean(0)
-    best = None
+    best, allc = None, []
     for az in np.arange(shaz - spread, shaz + spread + 0.1, step):
         ang = math.degrees(math.atan2(-math.cos(az * D2R) / img.my, math.sin(az * D2R) / img.mx))
         M = cv2.getRotationMatrix2D((half, half), ang, 1.0)
@@ -324,15 +330,19 @@ def find_streak(img, col, row, shaz, search_m, max_m, spread=25, step=2, dist_we
         k = max(2, int(round(3.0 / img.pm)))
         contrast = np.minimum(np.roll(Lr, k, 0), np.roll(Lr, -k, 0)) - Lr
         dark = ((Lr < 95) & (contrast > 18)).astype(np.uint8)
-        n, lab = cv2.connectedComponents(dark, connectivity=8)
+        n, lab, st, _ = cv2.connectedComponentsWithStats(dark, connectivity=8)
         inv = cv2.invertAffineTransform(M)
         for i in range(1, n):
-            ys, xs = np.nonzero(lab == i)
+            bx, by, bw, bh, area = st[i]
+            if area < 6 or (bw - 1) * img.pm < min_len or (bh - 1) * img.pm > max(3.5, 0.15 * (bw - 1) * img.pm):
+                continue                                  # cheap reject from the bounding box (same tests as below)
+            ys, xs = np.nonzero(lab[by:by + bh, bx:bx + bw] == i)
+            ys = ys + by; xs = xs + bx
             if len(xs) < 6:
                 continue
             length = (xs.max() - xs.min()) * img.pm
             width = len(xs) / max(1, xs.max() - xs.min() + 1) * img.pm
-            if length < 4 or width > 3.5 or length > max_m:
+            if length < min_len or width > 3.5 or length > max_m:
                 continue
             if np.ptp(ys) * img.pm > max(3.5, 0.15 * length):
                 continue
@@ -343,10 +353,14 @@ def find_streak(img, col, row, shaz, search_m, max_m, spread=25, step=2, dist_we
             x1 = xs.max(); y1 = int(np.median(ys[xs >= x1 - 2]))
             p0 = inv @ np.array([x0, y0, 1.0]); p1 = inv @ np.array([x1, y1, 1.0])
             score = length - dist_weight * dist          # prefer the shadow that starts at the point
-            if best is None or score > best["score"]:
-                best = dict(score=score, length_m=length, width_m=width, az=float(az), start_dist_m=dist,
-                            start=(c0 + p0[0], r0 + p0[1]), end=(c0 + p1[0], r0 + p1[1]))
-    return best
+            cand = dict(score=score, length_m=length, width_m=width, az=float(az), start_dist_m=dist,
+                        start=(c0 + p0[0], r0 + p0[1]), end=(c0 + p1[0], r0 + p1[1]),
+                        contrast=float(contrast[ys, xs].mean()))
+            if collect:
+                allc.append(cand)
+            elif best is None or score > best["score"]:
+                best = cand
+    return allc if collect else best
 
 
 # ======================================================================= main batch
@@ -418,7 +432,7 @@ def run_batch(opt, log=print, progress=lambda f: None):
                      height_m=round(h, 1), height_low_m=round(lo_, 1), height_high_m=round(hi_, 1), height_ft=round(h * FT, 1),
                      shadow_m=round(s["length_m"], 2), shadow_az=round(s["az"], 1), sun_elev=round(el, 2),
                      lat=round(bl, 7), lon=round(bo, 7), dms=f"{dms(bo, 'E', 'W')} {dms(bl, 'N', 'S')}",
-                     tip_lat=round(tl, 7), tip_lon=round(to, 7))
+                     tip_lat=round(tl, 7), tip_lon=round(to, 7), width_m=round(s["width_m"], 2))
             if p.get("known_height"):
                 r["error_vs_known_m"] = round(h - p["known_height"], 1)
         r["sun_source"] = el_src
@@ -453,7 +467,7 @@ def write_outputs(rows, img, opt, shaz, el, el_src, log):
     out = opt["out_dir"]; os.makedirs(out, exist_ok=True)
     base = os.path.join(out, opt.get("out_name", "shadow_heights"))
     cols = ["name", "status", "height_m", "height_low_m", "height_high_m", "height_ft", "dms", "lat", "lon", "shadow_m", "shadow_az",
-            "sun_elev", "known_height_m", "error_vs_known_m", "tip_lat", "tip_lon", "input_lat", "input_lon", "sun_source"]
+            "sun_elev", "known_height_m", "error_vs_known_m", "tip_lat", "tip_lon", "input_lat", "input_lon", "width_m", "mosque_lat", "mosque_lon", "sun_source"]
     with open(base + ".csv", "w", newline="", encoding="utf-8-sig") as f:
         w = csv.DictWriter(f, fieldnames=cols, extrasaction="ignore"); w.writeheader()
         for r, _ in rows:
@@ -478,7 +492,7 @@ def write_outputs(rows, img, opt, shaz, el, el_src, log):
                 '<Style id="low"><IconStyle><color>ff999999</color></IconStyle><LineStyle><color>ff999999</color><width>2</width></LineStyle></Style>')
         for r, _ in ok:
             nm = str(r["name"]).replace("&", "&amp;").replace("<", "&lt;")
-            st = "ok" if r["status"] == "ok" else "low"
+            st = "ok" if (r["status"] == "ok" or r["status"].startswith("likely")) else "low"
             f.write(f'<Placemark><name>{nm} {r["height_m"]:.0f} m</name><description>{r["height_low_m"]}-{r["height_high_m"]} m; shadow {r["shadow_m"]} m at {r["shadow_az"]} deg; sun {r["sun_elev"]} deg</description>'
                     f'<styleUrl>#{st}</styleUrl><MultiGeometry><Point><extrude>1</extrude><altitudeMode>relativeToGround</altitudeMode><coordinates>{r["lon"]},{r["lat"]},{r["height_m"]}</coordinates></Point>'
                     f'<LineString><tessellate>1</tessellate><coordinates>{r["lon"]},{r["lat"]},0 {r["tip_lon"]},{r["tip_lat"]},0</coordinates></LineString></MultiGeometry></Placemark>')
@@ -519,10 +533,385 @@ def write_outputs(rows, img, opt, shaz, el, el_src, log):
         for i, t in enumerate(tiles):
             sheet.paste(t, ((i % cols_) * 260, (i // cols_) * 260))
         sheet.save(base + "_review.jpg", quality=88)
-    n_ok = sum(1 for r, _ in rows if r.get("status") == "ok")
-    n_chk = sum(1 for r, _ in rows if str(r.get("status", "")).startswith("check"))
-    log(f"Done: {n_ok} of {len(rows)} points measured above the minimum, {n_chk} flagged for checking. Outputs in {out}")
+    from collections import Counter
+    cnt = Counter(str(r.get("status", "")).split(" - ")[0].split(":")[0] for r, _ in rows)
+    log(f"Done: {len(rows)} rows (" + ", ".join(f"{v} {k}" for k, v in cnt.most_common()) + f"). Outputs in {out}")
     log("   " + ", ".join(os.path.basename(base) + s for s in (".csv", "_points.shp", "_shadow_lines.shp", ".kml", "_review.jpg")))
+
+
+# ======================================================================= automatic scan (no points needed)
+def read_aoi(path, img, buffer_m=0, dn=0.0, de=0.0):
+    """Bounding box (col0,row0,col1,row1) in image pixels of the features in a KML/KMZ/SHP/CSV file."""
+    lls = []
+    ext = os.path.splitext(path)[1].lower()
+    if ext in (".kml", ".kmz"):
+        if ext == ".kmz":
+            with zipfile.ZipFile(path) as z:
+                text = z.read(next(n for n in z.namelist() if n.lower().endswith(".kml"))).decode("utf-8", "replace")
+        else:
+            text = open(path, encoding="utf-8", errors="replace").read()
+        for block in re.findall(r"<coordinates>([\s\S]*?)</coordinates>", text):
+            for tok in block.split():
+                v = tok.split(",")
+                if len(v) >= 2:
+                    lls.append((float(v[1]), float(v[0])))
+    elif ext == ".shp":
+        prj = os.path.splitext(path)[0] + ".prj"
+        if os.path.exists(prj) and "PROJCS" in open(prj).read().upper():
+            raise ValueError("The area shapefile is projected. Export it in WGS 1984 (geographic) first.")
+        for sh in shapefile.Reader(path).shapes():
+            lls += [(y, x) for x, y in sh.points]
+    else:
+        lls = [(p["lat"], p["lon"]) for p in read_points(path)]
+    if not lls:
+        raise ValueError("No coordinates found in the area file.")
+    px = [img.to_pixel(la - dn / 110700.0, lo - de / (111320.0 * math.cos(la * D2R))) for la, lo in lls]
+    b = buffer_m / img.pm
+    c0 = max(0, int(min(c for c, r in px) - b)); c1 = min(img.ds.width, int(max(c for c, r in px) + b) + 1)
+    r0 = max(0, int(min(r for c, r in px) - b)); r1 = min(img.ds.height, int(max(r for c, r in px) + b) + 1)
+    if c1 <= c0 or r1 <= r0:
+        raise ValueError("The area does not overlap the image.")
+    return c0, r0, c1, r1
+
+
+def _image_scale(img):
+    """One brightness scale for the whole image (16-bit / 11-bit imagery -> 0..255)."""
+    if img.ds.dtypes[0] == "uint8":
+        return 1.0
+    f = max(1, int(max(img.ds.width, img.ds.height) / 2000))
+    a = img.ds.read(img.bands, out_shape=(len(img.bands), max(1, img.ds.height // f), max(1, img.ds.width // f))).astype(np.float32)
+    return 255.0 / max(1.0, float(np.percentile(a[a > 0], 99.5)) if (a > 0).any() else 1.0)
+
+
+def scan_tile(L, img, shaz, spread, step, min_len_m, max_m, core):
+    """All thin dark streaks in one tile. L = brightness array; core = (x0,y0,x1,y1) tile-pixel box where a streak
+    must start (so that overlapping tiles do not report the same object twice). Returns list of dicts in tile pixels."""
+    H, W = L.shape
+    out = []
+    k = max(2, int(round(3.0 / img.pm)))
+    min_px = min_len_m / img.pm
+    diag = int(math.ceil(math.hypot(W, H)))
+    for az in np.arange(shaz - spread, shaz + spread + 0.1, step):
+        ang = math.degrees(math.atan2(-math.cos(az * D2R) / img.my, math.sin(az * D2R) / img.mx))
+        M = cv2.getRotationMatrix2D((W / 2, H / 2), ang, 1.0)
+        M[0, 2] += (diag - W) / 2; M[1, 2] += (diag - H) / 2      # keep the whole tile inside the rotated canvas
+        Lr = cv2.warpAffine(L, M, (diag, diag), flags=cv2.INTER_LINEAR, borderValue=255)
+        contrast = np.minimum(np.roll(Lr, k, 0), np.roll(Lr, -k, 0)) - Lr
+        dark = ((Lr < 95) & (contrast > 18)).astype(np.uint8)
+        n, lab, st, _ = cv2.connectedComponentsWithStats(dark, connectivity=8)
+        inv = cv2.invertAffineTransform(M)
+        for i in range(1, n):
+            x, y, w, h, area = st[i]
+            if w < min_px or w * img.pm > max_m or area < 6:
+                continue
+            length = (w - 1) * img.pm
+            if h * img.pm > max(3.5, 0.15 * length) + img.pm:
+                continue
+            width = area / w * img.pm
+            if width > 3.5 or width < AUTO_MIN_WIDTH:
+                continue
+            sub = lab[y:y + h, x:x + w] == i
+            ys, xs = np.nonzero(sub)
+            xs = xs + x; ys = ys + y
+            x0 = xs.min(); y0 = float(np.median(ys[xs <= x0 + 2]))
+            x1 = xs.max(); y1 = float(np.median(ys[xs >= x1 - 2]))
+            # gaps: a real shadow is continuous; a dashed lane marking is not
+            fill = len(np.unique(xs)) / float(w)
+            if fill < 0.8:
+                continue
+            # the sun side (just before the start) must not continue as a dark line (kerbs, lane markings, fences)
+            yy = int(round(y0)); a0 = int(max(0, x0 - 6.0 / img.pm)); a1 = int(max(0, x0 - 1.0 / img.pm))
+            if a1 > a0:
+                before = dark[max(0, yy - 1):yy + 2, a0:a1].any(0).mean()
+                if before > 0.35:
+                    continue
+            p0 = inv @ np.array([x0, y0, 1.0]); p1 = inv @ np.array([x1, y1, 1.0])
+            if not (core[0] <= p0[0] < core[2] and core[1] <= p0[1] < core[3]):
+                continue
+            out.append(dict(length_m=length, width_m=width, az=float(az), start=(p0[0], p0[1]), end=(p1[0], p1[1]),
+                            contrast=float(contrast[ys, xs].mean()), start_dist_m=0.0))
+    return out
+
+
+def dedupe_streaks(cands, pm):
+    """Same object seen at several angles / in overlapping tiles -> keep the longest."""
+    cands.sort(key=lambda s: -s["length_m"])
+    keep = []
+    for s in cands:
+        sx, sy = s["start"]
+        dup = False
+        for k in keep:
+            kx, ky = k["start"]; ex, ey = k["end"]
+            if math.hypot(sx - kx, sy - ky) * pm < 5:
+                dup = True; break
+            # start lies on an already kept (longer) streak -> part of the same shadow
+            vx, vy = ex - kx, ey - ky; ll = vx * vx + vy * vy
+            if ll > 0:
+                t = max(0.0, min(1.0, ((sx - kx) * vx + (sy - ky) * vy) / ll))
+                if math.hypot(sx - (kx + t * vx), sy - (ky + t * vy)) * pm < 3:
+                    dup = True; break
+        if not dup:
+            keep.append(s)
+    return keep
+
+
+def sun_for_scan(opt, img, shaz, dn, de, la_c, lo_c, log):
+    """Sun elevation for the scan modes: known-height points -> metadata value -> date."""
+    # sun elevation
+    el, el_src = None, ""
+    if opt.get("points") and opt.get("use_known", True):
+        kp = [p for p in read_points(opt["points"]) if p.get("known_height")]
+        ratios = []
+        for p in kp:
+            c, r = img.to_pixel(p["lat"] - dn / 110700.0, p["lon"] - de / (111320.0 * math.cos(p["lat"] * D2R)))
+            if 0 <= c < img.ds.width and 0 <= r < img.ds.height:
+                s = find_streak(img, c, r, shaz, opt.get("search_m", 25), opt["max_shadow_m"])
+                if s:
+                    ratios.append(p["known_height"] / s["length_m"])
+        if len(ratios) >= 2:
+            el = math.degrees(math.atan(float(np.median(ratios))))
+            el_src = f"calibrated from {len(ratios)} known heights"
+        elif kp:
+            log(f"Only {len(ratios)} of {len(kp)} known-height points gave a shadow; not enough to calibrate.")
+    if el is None and opt.get("sun_elev") is not None:
+        el = float(opt["sun_elev"]); el_src = "entered by user (metadata)"
+    if el is None and opt.get("date") is not None:
+        el, tloc = elevation_from_date(opt["date"], opt.get("tz", 3.0), la_c, lo_c, shaz, opt.get("time"))
+        if el is None:
+            raise ValueError("On that date the sun never stands opposite the measured shadow direction. Check the date.")
+        el_src = f"from date {opt['date']} and shadow direction (sun at {tloc} local)"
+    if el is None:
+        raise ValueError("Give the sun elevation, the image date, or a points file with 2+ known heights.")
+    return el, el_src
+
+
+def run_scan(opt, log=print, progress=lambda f: None, stop=lambda: False):
+    """Scan the whole image (or an area) for thin shadows of minarets, towers, masts, poles."""
+    img = Img(opt["image"])
+    log(f"Image {img.ds.width} x {img.ds.height} px, {img.mx:.2f} x {img.my:.2f} m per pixel")
+    dn, de = opt.get("offset_n", 0.0) or 0.0, opt.get("offset_e", 0.0) or 0.0
+    if opt.get("area"):
+        C0, R0, C1, R1 = read_aoi(opt["area"], img, 0, dn, de)
+        log(f"Scanning only the area in {os.path.basename(opt['area'])}: {C1 - C0} x {R1 - R0} px")
+    else:
+        C0, R0, C1, R1 = 0, 0, img.ds.width, img.ds.height
+    scale = _image_scale(img)
+    # shadow direction from a grid of windows inside the scan area
+    shaz = opt.get("shadow_az")
+    if shaz is None:
+        grid = [(C0 + (C1 - C0) * (i + 0.5) / 5, R0 + (R1 - R0) * (j + 0.5) / 5) for i in range(5) for j in range(5)]
+        shaz = detect_shadow_azimuth(img, [(int(c), int(r)) for c, r in grid], log)
+        if shaz is None:
+            raise ValueError("Could not detect the shadow direction (area too small?). Enter it manually.")
+    la_c, lo_c = img.to_latlon((C0 + C1) / 2, (R0 + R1) / 2)
+    el, el_src = sun_for_scan(opt, img, shaz, dn, de, la_c, lo_c, log)
+    log(f"Sun elevation used: {el:.2f} deg  ({el_src})")
+    tan = math.tan(el * D2R)
+    min_h = opt.get("min_height") or 0.0
+    min_len = max(5.0, 0.9 * min_h / tan)                  # 10 % slack: measured length is checked again below
+    log(f"Looking for thin shadows {min_len:.1f}-{opt['max_shadow_m']:.0f} m long (objects above about {min_h:.0f} m)")
+    # tiles
+    T = 1024
+    pad = int((opt["max_shadow_m"] + 15) / img.pm)
+    tiles = [(c, r) for r in range(R0, R1, T) for c in range(C0, C1, T)]
+    cands = []
+    for ti, (c, r) in enumerate(tiles):
+        if stop():
+            raise ValueError("Stopped by user.")
+        progress(ti / max(1, len(tiles)))
+        cc0, rr0 = max(0, c - pad), max(0, r - pad)
+        cc1, rr1 = min(img.ds.width, min(C1, c + T) + pad), min(img.ds.height, min(R1, r + T) + pad)
+        a = img.ds.read(img.bands, window=Window(cc0, rr0, cc1 - cc0, rr1 - rr0)).astype(np.float32)
+        if scale != 1.0:
+            a *= scale
+        if a.shape[0] == 1:
+            a = np.repeat(a, 3, 0)
+        L = a.mean(0)
+        if (L > 0).mean() < 0.05:
+            continue                                        # empty / no-data tile
+        L[L <= 0] = 255                                     # no-data never looks like shadow
+        core = (c - cc0, r - rr0, min(C1, c + T) - cc0, min(R1, r + T) - rr0)
+        for s in scan_tile(L, img, shaz, opt.get("spread", 20), opt.get("step", 4), min_len, opt["max_shadow_m"], core):
+            s["start"] = (s["start"][0] + cc0, s["start"][1] + rr0); s["end"] = (s["end"][0] + cc0, s["end"][1] + rr0)
+            cands.append(s)
+        if (ti + 1) % 25 == 0:
+            log(f"  {ti + 1} of {len(tiles)} tiles scanned, {len(cands)} raw streaks")
+    progress(1.0)
+    found = dedupe_streaks(cands, img.pm)
+    log(f"{len(found)} separate thin shadows found")
+    # build result rows (same outputs as point mode)
+    rows = []
+    azs = [s["az"] for s in found]
+    med_az = float(np.median(azs)) if azs else shaz
+    for s in found:
+        h = s["length_m"] * tan
+        if h < min_h:
+            continue
+        bl, bo = img.to_latlon(*s["start"]); tl, to = img.to_latlon(*s["end"])
+        bl += dn / 110700; bo += de / (111320 * math.cos(bl * D2R)); tl += dn / 110700; to += de / (111320 * math.cos(tl * D2R))
+        lo_ = max(0.0, (s["length_m"] - 1) * math.tan((el - 2) * D2R)); hi_ = (s["length_m"] + 1) * math.tan((el + 2) * D2R)
+        st = "ok"
+        if h > 60:
+            st = "check: very tall - verify on review sheet"
+        elif s["width_m"] < AUTO_OK_WIDTH:
+            st = "check: thin shadow - may be a gap between buildings"
+        elif abs(wrap180(s["az"] - med_az)) > 10:
+            st = "check: direction differs from other shadows"
+        elif s["contrast"] < 30:
+            st = "check: faint shadow"
+        r = dict(status=st, height_m=round(h, 1), height_low_m=round(lo_, 1), height_high_m=round(hi_, 1), height_ft=round(h * FT, 1),
+                 shadow_m=round(s["length_m"], 2), shadow_az=round(s["az"], 1), sun_elev=round(el, 2), lat=round(bl, 7), lon=round(bo, 7),
+                 dms=f"{dms(bo, 'E', 'W')} {dms(bl, 'N', 'S')}", tip_lat=round(tl, 7), tip_lon=round(to, 7), sun_source=el_src,
+                 input_lat="", input_lon="", known_height_m="", width_m=round(s["width_m"], 2))
+        p = dict(inside=True, col=s["start"][0], row=s["start"][1], streak=s)
+        rows.append((r, p))
+    rows.sort(key=lambda rp: -rp[0]["height_m"])
+    for i, (r, p) in enumerate(rows, 1):
+        r["name"] = f"AUTO-{i:04d}"
+    log(f"{len(rows)} objects at or above {min_h:.0f} m "
+        f"({sum(1 for r, _ in rows if r['status'] == 'ok')} ok, {sum(1 for r, _ in rows if r['status'] != 'ok')} to check)")
+    opt = dict(opt); opt.setdefault("out_name", "auto_scan_heights")
+    write_outputs(rows, img, opt, shaz, el, el_src, log)
+    return [r for r, _ in rows]
+
+
+def read_sites(path):
+    """Mosques / sites as list of (lat, lon, radius_m). Polygons (KML/SHP) -> centroid + half-size; points -> radius 30 m."""
+    ext = os.path.splitext(path)[1].lower()
+    feats = []
+    if ext == ".gz":
+        import gzip
+        with gzip.open(path, "rt") as f:
+            for r in csv.DictReader(f):
+                feats.append((float(r["lat"]), float(r["lon"]), max(15.0, float(r["radius_m"]))))
+        return feats
+    groups = []
+    if ext in (".kml", ".kmz"):
+        if ext == ".kmz":
+            with zipfile.ZipFile(path) as z:
+                text = z.read(next(n for n in z.namelist() if n.lower().endswith(".kml"))).decode("utf-8", "replace")
+        else:
+            text = open(path, encoding="utf-8", errors="replace").read()
+        for pm in re.findall(r"<Placemark[\s\S]*?</Placemark>", text):
+            cs = []
+            for block in re.findall(r"<coordinates>([\s\S]*?)</coordinates>", pm):
+                cs += [(float(t.split(",")[1]), float(t.split(",")[0])) for t in block.split() if len(t.split(",")) >= 2]
+            if cs:
+                groups.append(cs)
+    elif ext == ".shp":
+        prj = os.path.splitext(path)[0] + ".prj"
+        if os.path.exists(prj) and "PROJCS" in open(prj).read().upper():
+            raise ValueError("The mosques shapefile is projected. Export it in WGS 1984 (geographic) first.")
+        groups = [[(y, x) for x, y in sh.points] for sh in shapefile.Reader(path).shapes() if sh.points]
+    else:
+        groups = [[(p["lat"], p["lon"])] for p in read_points(path)]
+    for cs in groups:
+        la = sum(c[0] for c in cs) / len(cs); lo = sum(c[1] for c in cs) / len(cs)
+        r = max([math.hypot((c[0] - la) * 110700, (c[1] - lo) * 111320 * math.cos(la * D2R)) for c in cs] + [0])
+        feats.append((la, lo, max(30.0, min(150.0, r))))
+    return feats
+
+
+def builtin_mosques():
+    for d in (os.path.dirname(os.path.abspath(__file__)), os.path.dirname(os.path.abspath(sys.argv[0]))):
+        f = os.path.join(d, "mosques_ksa.csv.gz")
+        if os.path.exists(f):
+            return f
+    raise ValueError("Built-in mosque list not found. Choose a mosques file (points or outlines).")
+
+
+def streak_row(s, img, el, el_src, dn, de, status):
+    tan = math.tan(el * D2R)
+    h = s["length_m"] * tan
+    bl, bo = img.to_latlon(*s["start"]); tl, to = img.to_latlon(*s["end"])
+    bl += dn / 110700; bo += de / (111320 * math.cos(bl * D2R)); tl += dn / 110700; to += de / (111320 * math.cos(tl * D2R))
+    lo_ = max(0.0, (s["length_m"] - 1) * math.tan((el - 2) * D2R)); hi_ = (s["length_m"] + 1) * math.tan((el + 2) * D2R)
+    return dict(status=status, height_m=round(h, 1), height_low_m=round(lo_, 1), height_high_m=round(hi_, 1), height_ft=round(h * FT, 1),
+                shadow_m=round(s["length_m"], 2), shadow_az=round(s["az"], 1), sun_elev=round(el, 2), lat=round(bl, 7), lon=round(bo, 7),
+                dms=f"{dms(bo, 'E', 'W')} {dms(bl, 'N', 'S')}", tip_lat=round(tl, 7), tip_lon=round(to, 7), sun_source=el_src,
+                input_lat="", input_lon="", known_height_m="")
+
+
+def run_mosques(opt, log=print, progress=lambda f: None, stop=lambda: False):
+    """Automatic minaret search: look for tall thin shadows around every mosque in the image (built-in list or your own)."""
+    img = Img(opt["image"])
+    log(f"Image {img.ds.width} x {img.ds.height} px, {img.mx:.2f} x {img.my:.2f} m per pixel")
+    dn, de = opt.get("offset_n", 0.0) or 0.0, opt.get("offset_e", 0.0) or 0.0
+    src = opt.get("mosques") or builtin_mosques()
+    sites = read_sites(src)
+    if opt.get("area"):
+        C0, R0, C1, R1 = read_aoi(opt["area"], img, 0, dn, de)
+    else:
+        C0, R0, C1, R1 = 0, 0, img.ds.width, img.ds.height
+    inside = []
+    for la, lo, rad in sites:
+        c, r = img.to_pixel(la - dn / 110700.0, lo - de / (111320.0 * math.cos(la * D2R)))
+        if C0 <= c < C1 and R0 <= r < R1:
+            inside.append((la, lo, rad, c, r))
+    log(f"{len(inside)} mosques inside the {'area' if opt.get('area') else 'image'} "
+        f"({'built-in OpenStreetMap list' if not opt.get('mosques') else os.path.basename(src)})")
+    if not inside:
+        raise ValueError("No mosques fall inside the image / area.")
+    shaz = opt.get("shadow_az")
+    if shaz is None:
+        shaz = detect_shadow_azimuth(img, [(int(c), int(r)) for *_, c, r in inside], log)
+        if shaz is None:
+            raise ValueError("Could not detect the shadow direction; enter it manually.")
+    la_c = float(np.mean([x[0] for x in inside])); lo_c = float(np.mean([x[1] for x in inside]))
+    el, el_src = sun_for_scan(opt, img, shaz, dn, de, la_c, lo_c, log)
+    log(f"Sun elevation used: {el:.2f} deg  ({el_src})")
+    tan = math.tan(el * D2R)
+    min_h = opt.get("min_height") or 0.0
+    min_len = max(4.0, 0.9 * min_h / tan)
+    per = opt.get("per_mosque", 2)
+    cands = []
+    for i, (la, lo, rad, c, r) in enumerate(inside):
+        if stop():
+            raise ValueError("Stopped by user.")
+        progress(i / len(inside))
+        search = min(90.0, rad + 12.0)
+        cs = find_streak(img, c, r, shaz, search, opt["max_shadow_m"], spread=opt.get("spread", 25), collect=True, min_len=min_len)
+        # thin streaks (< 1.3 m) are mostly gaps between buildings, kerbs or fences, not minarets
+        cs = [x for x in cs if x["width_m"] >= AUTO_MIN_WIDTH]
+        for x in cs:
+            x["score"] = x["length_m"] - 0.3 * x["start_dist_m"]
+            x["mosque"] = i; x["site"] = (la, lo)
+        cs = dedupe_streaks(cs, img.pm)
+        cs.sort(key=lambda x: -x["score"])
+        for rank, x in enumerate(cs[:per], 1):
+            x["rank"] = rank
+        cands += cs[:per]
+        if (i + 1) % 50 == 0:
+            log(f"  {i + 1} of {len(inside)} mosques searched, {len(cands)} candidate shadows")
+    progress(1.0)
+    found = dedupe_streaks(cands, img.pm)
+    rows = []
+    for s in found:
+        h = s["length_m"] * tan
+        if h < min_h:
+            continue
+        st = "likely - verify on review sheet"
+        if h > 70:
+            st = "possible - very tall, verify"
+        elif s.get("rank", 1) > 1:
+            st = "possible - 2nd shadow at this mosque"
+        elif s["width_m"] < AUTO_OK_WIDTH:
+            st = "possible - thin, may be a gap between buildings"
+        elif s["contrast"] < 28:
+            st = "possible - faint shadow"
+        rr = streak_row(s, img, el, el_src, dn, de, st)
+        rr.update(width_m=round(s["width_m"], 2), mosque_lat=round(s["site"][0], 6), mosque_lon=round(s["site"][1], 6),
+                  mosque=s.get("mosque"), dist=round(s["start_dist_m"], 1))
+        rows.append((rr, dict(inside=True, col=s["start"][0], row=s["start"][1], streak=s)))
+    rows.sort(key=lambda rp: -rp[0]["height_m"])
+    for i, (r, p) in enumerate(rows, 1):
+        r["name"] = f"MNR-{i:04d}"
+    log(f"{len(rows)} candidate minaret shadows at or above {min_h:.0f} m around {len(inside)} mosques "
+        f"({sum(1 for r, _ in rows if r['status'].startswith('likely'))} likely). "
+        "Open the review sheet and delete the ones that are not minarets (walls and gaps between buildings look similar).")
+    opt = dict(opt); opt.setdefault("out_name", "minaret_scan_heights")
+    write_outputs(rows, img, opt, shaz, el, el_src, log)
+    return [r for r, _ in rows]
 
 
 # ======================================================================= self test
@@ -579,6 +968,31 @@ def selftest(folder):
         ok = ok and e2 <= 3.0
     except Exception as ex:
         print("JP2 read test FAILED:", ex); ok = False
+    # automatic modes on the same image: must find exactly the 6 towers
+    try:
+        mcsv = os.path.join(folder, "selftest_mosques.csv")
+        with open(mcsv, "w", newline="") as f:
+            w = csv.writer(f); w.writerow(["name", "lat", "lon"])
+            for i, ((c, r, h), la, lo) in enumerate(zip(towers, lats, lons), 1):
+                w.writerow([f"M{i}", la + 4 / 110700.0, lo])        # site point a few metres off the tower
+        for name, fn, extra in (("mosque search", run_mosques, dict(mosques=mcsv)), ("whole-image scan", run_scan, dict())):
+            o = dict(image=tif, out_dir=os.path.join(folder, "selftest_" + name.split()[0]), max_shadow_m=80, sun_elev=el,
+                     shadow_az=None, min_height=10)
+            o.update(extra)
+            got = fn(o, log=print)
+            hs = sorted(float(r["height_m"]) for r in got)
+            errs_a = [abs(a_ - b_) for a_, b_ in zip(hs, sorted(h for c, r, h in towers))]
+            good = len(hs) == len(towers) and max(errs_a) <= 3.0
+            print(f"{name}: found {len(hs)} of {len(towers)} towers, heights {hs}", "OK" if good else "FAILED")
+            ok = ok and good
+    except Exception as ex:
+        print("Automatic mode test FAILED:", ex); traceback.print_exc(); ok = False
+    try:
+        n_m = len(read_sites(builtin_mosques()))
+        print(f"Built-in mosque list: {n_m} mosques", "OK" if n_m > 10000 else "FAILED")
+        ok = ok and n_m > 10000
+    except Exception as ex:
+        print("Built-in mosque list FAILED:", ex); ok = False
     print("SELFTEST", "PASSED" if ok else "FAILED", "max error %.1f m" % max(errs))
     return ok
 
@@ -587,21 +1001,35 @@ def selftest(folder):
 def gui():
     import tkinter as tk
     from tkinter import ttk, filedialog, messagebox
-    root = tk.Tk(); root.title(f"{APP} {VERSION}"); root.geometry("760x640")
-    v = {k: tk.StringVar() for k in ("image", "points", "out", "elev", "date", "time", "tz", "az", "search", "maxsh", "minh", "dn", "de")}
+    root = tk.Tk(); root.title(f"{APP} {VERSION}"); root.geometry("820x760")
+    v = {k: tk.StringVar() for k in ("image", "points", "mosques", "area", "out", "elev", "date", "time", "tz", "az", "search", "maxsh", "minh", "dn", "de")}
     v["tz"].set("3"); v["search"].set("25"); v["maxsh"].set("80"); v["minh"].set("15"); v["dn"].set("0"); v["de"].set("0")
     mode = tk.StringVar(value="known")
+    job = tk.StringVar(value="points")
+    stop_flag = {"stop": False}
     frm = ttk.Frame(root, padding=12); frm.pack(fill="both", expand=True)
+
+    jf = ttk.LabelFrame(frm, text="What to do", padding=8); jf.grid(row=0, column=0, columnspan=3, sticky="we", pady=(0, 6))
+    ttk.Radiobutton(jf, text="Measure heights at my points (points file required)", variable=job, value="points").grid(row=0, column=0, sticky="w")
+    ttk.Radiobutton(jf, text="AUTOMATIC: find minarets around every mosque (built-in Saudi/Gulf mosque list, or your own mosques file)",
+                    variable=job, value="mosques").grid(row=1, column=0, sticky="w")
+    ttk.Radiobutton(jf, text="AUTOMATIC: scan the whole image / area for poles, masts, pylons, towers (best in open ground)",
+                    variable=job, value="scan").grid(row=2, column=0, sticky="w")
 
     def row(r, label, var, browse=None, width=60):
         ttk.Label(frm, text=label).grid(row=r, column=0, sticky="w", pady=3)
         ttk.Entry(frm, textvariable=var, width=width).grid(row=r, column=1, sticky="we", pady=3)
         if browse:
             ttk.Button(frm, text="Browse...", command=browse).grid(row=r, column=2, padx=4)
-    row(0, "Image (GeoTIFF / JP2)", v["image"], lambda: v["image"].set(filedialog.askopenfilename(filetypes=[("Images", "*.tif *.tiff *.jp2 *.img *.ecw"), ("All", "*.*")])))
-    row(1, "Points (CSV / SHP / KML)", v["points"], lambda: v["points"].set(filedialog.askopenfilename(filetypes=[("Points", "*.csv *.txt *.shp *.kml *.kmz"), ("All", "*.*")])))
-    row(2, "Output folder", v["out"], lambda: v["out"].set(filedialog.askdirectory()))
-    lf = ttk.LabelFrame(frm, text="Sun elevation", padding=8); lf.grid(row=3, column=0, columnspan=3, sticky="we", pady=8)
+    vec = [("Vector", "*.csv *.txt *.shp *.kml *.kmz"), ("All", "*.*")]
+    row(1, "Image (GeoTIFF / JP2)", v["image"], lambda: v["image"].set(filedialog.askopenfilename(filetypes=[("Images", "*.tif *.tiff *.jp2 *.img *.ecw"), ("All", "*.*")])))
+    row(2, "Points (CSV / SHP / KML)", v["points"], lambda: v["points"].set(filedialog.askopenfilename(filetypes=vec)))
+    row(3, "Mosques file (optional)", v["mosques"], lambda: v["mosques"].set(filedialog.askopenfilename(filetypes=vec)))
+    row(4, "Limit to area (optional)", v["area"], lambda: v["area"].set(filedialog.askopenfilename(filetypes=vec)))
+    row(5, "Output folder", v["out"], lambda: v["out"].set(filedialog.askdirectory()))
+    ttk.Label(frm, foreground="#555", text="Automatic modes: Points file is optional - use it only to give 2+ known heights for sun calibration. "
+              "Mosques file blank = built-in list. Area = any KML/SHP/CSV, its extent is scanned.", wraplength=760).grid(row=6, column=0, columnspan=3, sticky="w")
+    lf = ttk.LabelFrame(frm, text="Sun elevation", padding=8); lf.grid(row=7, column=0, columnspan=3, sticky="we", pady=8)
     ttk.Radiobutton(lf, text="Calibrate from known heights in the points file (column known_height_m, 2 or more)", variable=mode, value="known").grid(row=0, column=0, columnspan=4, sticky="w")
     ttk.Radiobutton(lf, text="Sun elevation from metadata (deg):", variable=mode, value="elev").grid(row=1, column=0, sticky="w")
     ttk.Entry(lf, textvariable=v["elev"], width=10).grid(row=1, column=1, sticky="w")
@@ -609,15 +1037,15 @@ def gui():
     ttk.Entry(lf, textvariable=v["date"], width=12).grid(row=2, column=1, sticky="w")
     ttk.Label(lf, text="time HH:MM (optional)").grid(row=2, column=2, sticky="e"); ttk.Entry(lf, textvariable=v["time"], width=7).grid(row=2, column=3, sticky="w")
     ttk.Label(lf, text="time zone (h from UTC)").grid(row=3, column=2, sticky="e"); ttk.Entry(lf, textvariable=v["tz"], width=7).grid(row=3, column=3, sticky="w")
-    of = ttk.LabelFrame(frm, text="Options", padding=8); of.grid(row=4, column=0, columnspan=3, sticky="we")
+    of = ttk.LabelFrame(frm, text="Options", padding=8); of.grid(row=8, column=0, columnspan=3, sticky="we")
     opts = (("Shadow direction deg (blank = detect)", "az"), ("Search radius around each point (m)", "search"), ("Longest shadow (m)", "maxsh"),
             ("Report heights above (m)", "minh"), ("Your data minus image, north (m)", "dn"), ("Your data minus image, east (m)", "de"))
     for i, (lab, k) in enumerate(opts):
         ttk.Label(of, text=lab).grid(row=i // 2, column=(i % 2) * 2, sticky="w", padx=4, pady=2)
         ttk.Entry(of, textvariable=v[k], width=10).grid(row=i // 2, column=(i % 2) * 2 + 1, sticky="w", pady=2)
-    pb = ttk.Progressbar(frm, mode="determinate", maximum=100); pb.grid(row=5, column=0, columnspan=3, sticky="we", pady=8)
-    txt = tk.Text(frm, height=12, wrap="word"); txt.grid(row=7, column=0, columnspan=3, sticky="nsew")
-    frm.columnconfigure(1, weight=1); frm.rowconfigure(7, weight=1)
+    pb = ttk.Progressbar(frm, mode="determinate", maximum=100); pb.grid(row=9, column=0, columnspan=3, sticky="we", pady=8)
+    txt = tk.Text(frm, height=12, wrap="word"); txt.grid(row=11, column=0, columnspan=3, sticky="nsew")
+    frm.columnconfigure(1, weight=1); frm.rowconfigure(11, weight=1)
 
     def log(m):
         root.after(0, lambda: (txt.insert("end", m + "\n"), txt.see("end")))
@@ -628,9 +1056,16 @@ def gui():
 
     def work():
         try:
-            o = dict(image=v["image"].get(), points=v["points"].get(), out_dir=v["out"].get() or os.path.dirname(v["points"].get()),
+            j = job.get()
+            out = v["out"].get() or os.path.join(os.path.dirname(v["image"].get()), "shadow_height_output")
+            o = dict(image=v["image"].get(), points=v["points"].get().strip() or None, out_dir=out,
                      search_m=num("search", 25), max_shadow_m=num("maxsh", 80), min_height=num("minh"), shadow_az=num("az"),
-                     offset_n=num("dn", 0), offset_e=num("de", 0), tz=num("tz", 3), use_known=mode.get() == "known")
+                     offset_n=num("dn", 0), offset_e=num("de", 0), tz=num("tz", 3), use_known=mode.get() == "known",
+                     mosques=v["mosques"].get().strip() or None, area=v["area"].get().strip() or None)
+            if not o["image"]:
+                raise ValueError("Choose the image.")
+            if j == "points" and not o["points"]:
+                raise ValueError("Choose the points file (or pick an automatic mode).")
             if mode.get() == "elev":
                 o["sun_elev"] = num("elev")
                 if o["sun_elev"] is None:
@@ -639,20 +1074,37 @@ def gui():
                 o["date"] = dt.date.fromisoformat(v["date"].get().strip())
                 if v["time"].get().strip():
                     hh, mm = v["time"].get().strip().split(":")[:2]; o["time"] = dt.time(int(hh), int(mm))
-            run_batch(o, log=log, progress=lambda f: root.after(0, lambda: pb.configure(value=f * 100)))
-            root.after(0, lambda: messagebox.showinfo(APP, "Finished. See the output folder."))
+            if mode.get() == "known" and not o["points"]:
+                raise ValueError("Known-height calibration needs a points file with known_height_m. Or choose metadata elevation / date.")
+            prog = lambda f: root.after(0, lambda: pb.configure(value=f * 100))
+            stop = lambda: stop_flag["stop"]
+            if j == "points":
+                run_batch(o, log=log, progress=prog)
+            elif j == "mosques":
+                run_mosques(o, log=log, progress=prog, stop=stop)
+            else:
+                run_scan(o, log=log, progress=prog, stop=stop)
+            root.after(0, lambda: messagebox.showinfo(APP, "Finished. Check the review sheet (JPG) in the output folder:\n" + out))
         except Exception as e:
             log("ERROR: " + str(e)); log(traceback.format_exc())
             root.after(0, lambda: messagebox.showerror(APP, str(e)))
         finally:
-            root.after(0, lambda: run_btn.configure(state="normal"))
+            root.after(0, lambda: (run_btn.configure(state="normal"), stop_btn.configure(state="disabled")))
 
     def start():
-        txt.delete("1.0", "end"); run_btn.configure(state="disabled")
+        txt.delete("1.0", "end"); run_btn.configure(state="disabled"); stop_btn.configure(state="normal"); stop_flag["stop"] = False
         threading.Thread(target=work, daemon=True).start()
-    run_btn = ttk.Button(frm, text="Run batch", command=start); run_btn.grid(row=6, column=0, columnspan=3, pady=4)
-    log("Points file: CSV with name, lat, lon (or a 'coord' column with DMS); optional known_height_m.\n"
-        "Place each point on or next to the minaret / tower. ECW images: export to GeoTIFF or JP2 first.")
+    bf = ttk.Frame(frm); bf.grid(row=10, column=0, columnspan=3, pady=4)
+    run_btn = ttk.Button(bf, text="Run", command=start); run_btn.pack(side="left", padx=6)
+    stop_btn = ttk.Button(bf, text="Stop", state="disabled", command=lambda: stop_flag.update(stop=True)); stop_btn.pack(side="left", padx=6)
+    log("Measure at points: CSV with name, lat, lon (or a 'coord' column with DMS); optional known_height_m.\n"
+        "Automatic minarets: no points needed - mosques come from the built-in list (or your file).\n"
+        "Mosaics with several acquisition dates: run each acquisition strip separately (Limit to area), each has its own sun angle.\n"
+        "ECW images: export to GeoTIFF or JP2 first.")
+    if os.environ.get("SHB_GUI_SMOKE"):                     # build check: open the window, then close it
+        def _close():
+            open(os.environ["SHB_GUI_SMOKE"], "w").write("GUI OK"); root.destroy()
+        root.after(2000, _close)
     root.mainloop()
 
 
@@ -668,6 +1120,11 @@ def main():
     ap.add_argument("--shadow-az", type=float); ap.add_argument("--search", type=float, default=25); ap.add_argument("--max-shadow", type=float, default=80)
     ap.add_argument("--min-height", type=float, default=15); ap.add_argument("--offset-n", type=float, default=0); ap.add_argument("--offset-e", type=float, default=0)
     ap.add_argument("--no-known", action="store_true", help="ignore known_height_m column")
+    ap.add_argument("--scan", action="store_true", help="scan the whole image (or --area) for tall thin objects; no points needed")
+    ap.add_argument("--area", help="KML/KMZ/SHP/CSV whose extent limits the scan")
+    ap.add_argument("--mosques-auto", action="store_true", help="find minarets around mosques of the built-in OpenStreetMap list")
+    ap.add_argument("--mosques", help="your own mosques file (points or outlines: CSV/SHP/KML) for the minaret search")
+    ap.add_argument("--spread", type=float, default=20); ap.add_argument("--step", type=float, default=4)
     a = ap.parse_args()
     if a.selftest:
         sys.exit(0 if selftest(a.selftest) else 1)
@@ -677,7 +1134,14 @@ def main():
         o["date"] = dt.date.fromisoformat(a.date)
         if a.time:
             hh, mm = a.time.split(":")[:2]; o["time"] = dt.time(int(hh), int(mm))
-    run_batch(o)
+    if a.mosques_auto or a.mosques:
+        o["area"] = a.area; o["mosques"] = a.mosques
+        run_mosques(o)
+    elif a.scan:
+        o["area"] = a.area; o["spread"] = a.spread; o["step"] = a.step
+        run_scan(o)
+    else:
+        run_batch(o)
 
 
 if __name__ == "__main__":

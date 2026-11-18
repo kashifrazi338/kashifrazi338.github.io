@@ -19,28 +19,34 @@ jobs:
           python -m pip install --upgrade pip
           pip install nuitka ordered-set zstandard "numpy==2.2.6" rasterio opencv-python-headless pyshp pillow
       - name: Test source
-        run: python tools/shadow_height_batch/shadow_height_batch.py --selftest src_test
+        shell: bash
+        run: |
+          cp tools/shadow_height_batch/mosques_ksa.csv.gz .
+          python tools/shadow_height_batch/shadow_height_batch.py --selftest src_test
+          SHB_GUI_SMOKE=gui_src.txt python tools/shadow_height_batch/shadow_height_batch.py && cat gui_src.txt
       - name: Compile (native code, no Python source inside)
         run: >
           python -m nuitka --standalone --onefile --assume-yes-for-downloads
           --enable-plugin=tk-inter
           --include-package=rasterio --include-package-data=rasterio --include-module=numpy._core._exceptions
+          --include-data-files=tools/shadow_height_batch/mosques_ksa.csv.gz=mosques_ksa.csv.gz
           --nofollow-import-to=pytest --nofollow-import-to=IPython --nofollow-import-to=matplotlib
           --windows-console-mode=attach
-          --company-name="Shadow Height" --product-name="Shadow Height Batch" --file-version=1.0.0.0 --product-version=1.0.0.0
+          --company-name="Shadow Height" --product-name="Shadow Height Batch" --file-version=2.0.0.0 --product-version=2.0.0.0
           --output-filename=ShadowHeightBatch.exe --output-dir=build
           tools/shadow_height_batch/shadow_height_batch.py
       - name: Test exe
         shell: bash
         run: |
           ./build/ShadowHeightBatch.exe --selftest exe_test 2>&1 | tee exe_test.log
-          ls exe_test
+          grep -q "SELFTEST PASSED" exe_test.log
+          SHB_GUI_SMOKE=gui_exe.txt ./build/ShadowHeightBatch.exe; sleep 3; cat gui_exe.txt | tee -a exe_test.log
       - name: Package and commit
         shell: bash
         run: |
           mkdir -p results_tool pkg
           cp build/ShadowHeightBatch.exe tools/shadow_height_batch/README.txt tools/shadow_height_batch/points_template.csv pkg/
-          (cd pkg && 7z a -tzip ../results_tool/ShadowHeightBatch_v1.zip *)
+          (cd pkg && 7z a -tzip ../results_tool/ShadowHeightBatch_v2.zip *)
           cp exe_test.log results_tool/
           git config user.name "github-actions"; git config user.email "actions@github.com"
           git add results_tool
