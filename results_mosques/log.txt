@@ -1,4 +1,5 @@
-$ osmium extract -b 46.6,24.55,46.91,24.83 gcc.osm.pbf -o box.pbf --overwrite -s smart
+$ osmium extract -b 34.4,16.3,55.7,32.2 gcc.osm.pbf -o box.pbf --overwrite -s smart
 $ osmium tags-filter box.pbf nwr/amenity=place_of_worship nwr/building=mosque nwr/tower:type=minaret nwr/building:part=minaret nwr/man_made=minaret -o f.pbf --overwrite
-$ osmium export f.pbf -f geojson -a type,id -o out/mosques.geojson --overwrite
-DONE 2651 Counter({'MultiPolygon': 1014, 'LineString': 1013, 'Point': 624}) 59 minaret-tagged
+$ osmium export f.pbf -f geojson -a type,id -o out/mosques_ksa.geojson --overwrite
+DONE 32602 Counter({'Point': 11184, 'MultiPolygon': 10752, 'LineString': 10666}) 1375 minaret-tagged
+mosques 32602 -> 21003
