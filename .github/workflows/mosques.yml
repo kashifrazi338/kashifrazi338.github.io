@@ -16,9 +16,11 @@ jobs:
         run: |
           curl -sSfL -o gcc.osm.pbf https://download.geofabrik.de/asia/gcc-states-latest.osm.pbf
           mkdir -p out
-          python mosques.py gcc.osm.pbf 46.60 24.55 46.91 24.83 out/mosques.geojson 2>&1 | tee out/log.txt
+          python mosques.py gcc.osm.pbf 34.4 16.3 55.7 32.2 out/mosques_ksa.geojson 2>&1 | tee out/log.txt
+          python mosque_db.py out/mosques_ksa.geojson out/mosques_ksa.csv.gz 2>&1 | tee -a out/log.txt
+          rm out/mosques_ksa.geojson
       - name: Commit
         run: |
-          rm -rf results_mosques && mkdir -p results_mosques && cp -r tools/mosques/out/. results_mosques/
+          mkdir -p results_mosques && cp -r tools/mosques/out/. results_mosques/
           git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add results_mosques && (git commit -m "Mosques from OSM, run ${{ github.run_id }} [skip ci]" || true) && (git push || (git pull --rebase && git push))
