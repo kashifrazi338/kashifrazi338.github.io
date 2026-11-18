@@ -32,12 +32,12 @@ INPUTS
                           The tool shifts your points onto the image and the results back to your frame.
 
 OUTPUT (in the output folder)
-   <name>_heights.csv            one row per point: height_m, low/high, feet, DMS + decimal coords,
+   shadow_heights.csv            one row per point: height_m, low/high, feet, DMS + decimal coords,
                                  shadow length/azimuth, sun elevation, status
-   <name>_points.shp             points with heights (WGS84)
-   <name>_shadow_lines.shp       measured shadow (base -> tip) for checking in ArcGIS
-   <name>_heights.kml            open in Google Earth
-   <name>_review.jpg             image chip per point with the measured shadow drawn
+   shadow_heights_points.shp     points with heights (WGS84)
+   shadow_heights_shadow_lines.shp measured shadow (base -> tip) for checking in ArcGIS
+   shadow_heights.kml            open in Google Earth
+   shadow_heights_review.jpg     image chip per point with the measured shadow drawn
 
 STATUS VALUES
    ok                            measured
