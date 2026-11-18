@@ -18,6 +18,7 @@ JP2 read test: max error 0.3 m
 Image 1200 x 1200 px, 0.50 x 0.50 m per pixel
 6 mosques inside the image (selftest_mosques.csv)
 Shadow direction detected from 6 image windows: 300 deg
+Tip: enter the shadow direction (sun azimuth from the metadata + 180) for faster, cleaner results.
 Sun elevation used: 50.00 deg  (entered by user (metadata))
 6 candidate minaret shadows at or above 10 m around 6 mosques (6 likely). Open the review sheet and delete the ones that are not minarets (walls and gaps between buildings look similar).
 Done: 6 rows (6 likely). Outputs in exe_test\selftest_mosque
