@@ -1,0 +1,48 @@
+name: build-shadow-height-tool
+on:
+  workflow_dispatch:
+  push:
+    branches: [gba-obstacles]
+    paths: ['tools/shadow_height_batch/**', '.github/workflows/shadow-tool.yml']
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install "nuitka==2.4.11" ordered-set zstandard numpy rasterio opencv-python-headless pyshp pillow
+      - name: Test source
+        run: python tools/shadow_height_batch/shadow_height_batch.py --selftest src_test
+      - name: Compile (native code, no Python source inside)
+        run: >
+          python -m nuitka --standalone --onefile --assume-yes-for-downloads
+          --enable-plugin=tk-inter
+          --include-package=rasterio --include-package-data=rasterio
+          --nofollow-import-to=pytest --nofollow-import-to=IPython --nofollow-import-to=matplotlib
+          --windows-console-mode=attach
+          --company-name="Shadow Height" --product-name="Shadow Height Batch" --file-version=1.0.0.0 --product-version=1.0.0.0
+          --output-filename=ShadowHeightBatch.exe --output-dir=build
+          tools/shadow_height_batch/shadow_height_batch.py
+      - name: Test exe
+        shell: bash
+        run: |
+          ./build/ShadowHeightBatch.exe --selftest exe_test 2>&1 | tee exe_test.log
+          ls exe_test
+      - name: Package and commit
+        shell: bash
+        run: |
+          mkdir -p results_tool pkg
+          cp build/ShadowHeightBatch.exe tools/shadow_height_batch/README.txt tools/shadow_height_batch/points_template.csv pkg/
+          (cd pkg && 7z a -tzip ../results_tool/ShadowHeightBatch_v1.zip *)
+          cp exe_test.log results_tool/
+          git config user.name "github-actions"; git config user.email "actions@github.com"
+          git add results_tool
+          git commit -m "Shadow height batch tool build ${{ github.run_id }} [skip ci]"
+          git pull --rebase origin gba-obstacles && git push origin HEAD:gba-obstacles
