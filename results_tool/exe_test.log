@@ -48,9 +48,9 @@ Using learned model (23 confirmed / 793 rejected examples, AUC 0.74)
 Second image: exe_test\selftest_image.tif (file)
   second image (one acquisition): 6 candidates, its shadow direction 294 deg, sun elevation 50.1 deg
 Second image check: 6 of 6 candidates confirmed (same base, matching shadow and height).
-6 candidate minaret shadows at or above 10 m around 6 mosques (0 likely). Open the review page, mark Yes/No and train: the model learns your imagery.
+6 candidate minaret shadows at or above 10 m around 6 mosques (5 likely). Open the review page, mark Yes/No and train: the model learns your imagery.
 Review page: minaret_scan_heights_review.html (6 cards) - open it in a browser, mark Yes/No, press 'Save labels' and put the downloaded CSV in this folder; then use 'Train' to teach the model.
-Done: 6 rows (6 confirmed by 2nd image). Outputs in exe_test\selftest_second
+Done: 6 rows (5 likely (model), 1 possible (model)). Outputs in exe_test\selftest_second
    minaret_scan_heights.csv, minaret_scan_heights_points.shp, minaret_scan_heights_shadow_lines.shp, minaret_scan_heights.kml, minaret_scan_heights_review.jpg
 Second image check: 6 of 6 confirmed OK
 Earlier training data: 23 confirmed / 793 rejected (shadow_training_data.npz)
