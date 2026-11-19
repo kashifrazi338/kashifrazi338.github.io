@@ -62,12 +62,13 @@ Training + review page: OK
 Built-in mosque list: 21003 mosques OK
 SELFTEST PASSED max error 0.3 m
 second image window: OK | acquisition: 20250905 WV03
+Area: lat 24.72350 to 24.72620, lon 46.84250 to 46.84550
 Downloading 0.09 km2 from the service (arcgis) at 0.3 m: 1012 x 997 px ...
 Saved service_image.tif (100% covered).
 Acquisition(s) in this area: 20250905 WV03
 Sun from the service's acquisition date 2025-09-05 (time solved from the shadow direction).
 Image 1012 x 997 px, 0.30 x 0.30 m per pixel
-1 mosques inside the area (built-in OpenStreetMap list)
+1 mosques inside the image (built-in OpenStreetMap list)
 Shadow direction detected from 1 image windows: 316 deg
 Tip: enter the shadow direction (sun azimuth from the metadata + 180) for faster, cleaner results.
 Sun elevation used: 66.00 deg  (from date 2025-09-05 and shadow direction (sun at 10:45 local))
@@ -75,5 +76,21 @@ Using learned model (23 confirmed / 793 rejected examples, AUC 0.74)
 2 candidate minaret shadows at or above 15 m around 1 mosques (0 likely). Open the review page, mark Yes/No and train: the model learns your imagery.
 Review page: minaret_scan_heights_review.html (2 cards) - open it in a browser, mark Yes/No, press 'Save labels' and put the downloaded CSV in this folder; then use 'Train' to teach the model.
 Done: 2 rows (1 possible (model), 1 unlikely (model)). Outputs in svc_out
+   minaret_scan_heights.csv, minaret_scan_heights_points.shp, minaret_scan_heights_shadow_lines.shp, minaret_scan_heights.kml, minaret_scan_heights_review.jpg
+The area file svc_point.kml holds a point / very small shape (1 coordinate(s)) - using a 600 x 600 m square around it. Use a polygon or 2 corner points for a larger area.
+Area: lat 24.72209 to 24.72751, lon 46.84103 to 46.84697
+Downloading 0.36 km2 from the service (arcgis) at 0.3 m: 2000 x 2000 px ...
+Saved service_image.tif (100% covered).
+Acquisition(s) in this area: 20250905 WV03
+Sun from the service's acquisition date 2025-09-05 (time solved from the shadow direction).
+Image 2000 x 2000 px, 0.30 x 0.30 m per pixel
+1 mosques inside the image (built-in OpenStreetMap list)
+Shadow direction detected from 1 image windows: 316 deg
+Tip: enter the shadow direction (sun azimuth from the metadata + 180) for faster, cleaner results.
+Sun elevation used: 66.00 deg  (from date 2025-09-05 and shadow direction (sun at 10:45 local))
+Using learned model (23 confirmed / 793 rejected examples, AUC 0.74)
+2 candidate minaret shadows at or above 15 m around 1 mosques (0 likely). Open the review page, mark Yes/No and train: the model learns your imagery.
+Review page: minaret_scan_heights_review.html (2 cards) - open it in a browser, mark Yes/No, press 'Save labels' and put the downloaded CSV in this folder; then use 'Train' to teach the model.
+Done: 2 rows (1 possible (model), 1 unlikely (model)). Outputs in svc_out2
    minaret_scan_heights.csv, minaret_scan_heights_points.shp, minaret_scan_heights_shadow_lines.shp, minaret_scan_heights.kml, minaret_scan_heights_review.jpg
 GUI OK
