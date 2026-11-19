@@ -32,7 +32,7 @@ import shapefile
 from PIL import Image, ImageDraw, ImageFont
 
 APP = "Shadow Height Batch"
-VERSION = "3.1"
+VERSION = "3.2"
 D2R, R2D = math.pi / 180.0, 180.0 / math.pi
 FT = 3.28084
 # automatic modes: minaret / mast shadows are 1.4-2.5 m wide; gaps between buildings and kerb lines are thinner
@@ -1027,6 +1027,16 @@ def _register(img, w_path, lat, lon, half_m=60.0):
     return dx * res_m, -dy * res_m, float(resp)
 
 
+def rank_key(rp):
+    """Order of automatic results: model class first; inside a class, candidates the second image agrees with come first.
+    (Riyadh test: 'likely + 2nd image agrees' ~7 in 10 real, 'possible + agrees' ~1-3 in 10, 'unlikely + agrees' ~0.)"""
+    r, p = rp
+    st = r.get("status", "")
+    cls = {"likely": 0, "possible": 1, "unlikely": 2}.get(st.split()[0], 1) if st else 1
+    agree = 0 if "2nd image agrees" in st else 1
+    return (cls, agree, -(p.get("streak") or {}).get("mscore", 0.0), -(r.get("height_m") or 0))
+
+
 def second_view_check(rows, img, opt, el1, log=print, progress=lambda f: None, stop=lambda: False):
     """Measure every candidate again in the second image. A real tall object casts a shadow from the same base in both
     images; its height from the second image must agree. Adds h2_m / second_check columns and adjusts the status."""
@@ -1071,6 +1081,27 @@ def second_view_check(rows, img, opt, el1, log=print, progress=lambda f: None, s
     for g, items in groups.items():
         az2, tan2 = opt.get("second_az"), (math.tan(opt["second_elev"] * D2R) if opt.get("second_elev") else None)
         good = sorted(items, key=lambda it: -(it[1]["streak"].get("mscore", 0.0)))[:max(8, len(items) // 3)]
+        mm = re.match(r"(\d{4})(\d{2})(\d{2})", g or "")
+        if mm and az2 is None and tan2 is None:
+            # acquisition date known: the sun moves along a known path that day - find the time of day at which the most
+            # candidates have a matching shadow (direction within 10 deg, height within 25 %)
+            day = dt.datetime(int(mm.group(1)), int(mm.group(2)), int(mm.group(3))) - dt.timedelta(hours=opt.get("tz", 3.0))
+            la_ = float(np.mean([img.to_latlon(*it[1]["streak"]["start"])[0] for it in items]))
+            lo_ = float(np.mean([img.to_latlon(*it[1]["streak"]["start"])[1] for it in items]))
+            bestt = None
+            for minute in range(6 * 60 + 30, 15 * 60 + 31, 4):
+                e_, a_ = sun_position(day + dt.timedelta(minutes=minute), la_, lo_)[:2]
+                if e_ < 15:
+                    continue
+                sa, tn = (a_ + 180) % 360, math.tan(e_ * D2R)
+                sc_ = sum(1 for r, p, m in items
+                          if any(abs(wrap180(c[1] - sa)) <= 10 and abs(c[0] * tn - r["height_m"]) <= 0.25 * max(r["height_m"], 1) for c in m["cands"]))
+                if bestt is None or sc_ > bestt[0]:
+                    bestt = (sc_, sa, tn, minute, e_)
+            if bestt and bestt[0] >= 3:
+                az2, tan2 = bestt[1], bestt[2]
+                log(f"  second image {g}: acquired about {bestt[3] // 60 + int(opt.get('tz', 3.0)) - int(opt.get('tz', 3.0)):02d}:{bestt[3] % 60:02d} local "
+                    f"(sun {bestt[4]:.1f} deg) - fits {bestt[0]} candidates")
         if az2 is None:
             a_all = [c[1] for it in good for c in it[2]["cands"][:2] if c[0] >= 4]
             if len(a_all) < 6:
@@ -1096,6 +1127,7 @@ def second_view_check(rows, img, opt, el1, log=print, progress=lambda f: None, s
             log(f"  second image {g or ''}: could not calibrate its sun - enter 2nd-image sun elevation/azimuth"); continue
         log(f"  second image {g or '(one acquisition)'}: {len(items)} candidates, its shadow direction {az2 % 360:.0f} deg, sun elevation {math.degrees(math.atan(tan2)):.1f} deg")
         for r, p, m in items:
+            p["_m2"] = dict(m, az2=az2, tan2=tan2)
             h1 = r["height_m"]
             c = [c for c in m["cands"] if abs(wrap180(c[1] - az2)) <= 15]
             if not c:
@@ -1113,7 +1145,7 @@ def second_view_check(rows, img, opt, el1, log=print, progress=lambda f: None, s
             continue
         if chk == "agrees":
             n_ag += 1
-            r["status"] = "confirmed by 2nd image - " + r["status"]
+            r["status"] = r["status"] + " - 2nd image agrees"
         else:
             r["status"] = r["status"] + f" - 2nd image: {chk}"
     log(f"Second image check: {n_ag} of {len(todo)} candidates confirmed (same base, matching shadow and height).")
@@ -1358,13 +1390,7 @@ def run_scan(opt, log=print, progress=lambda f: None, stop=lambda: False):
         rows.append((r, p))
     if opt.get("second"):
         second_view_check(rows, img, opt, el, log=log, progress=progress, stop=stop)
-    conf = lambda rp: 0 if rp[0]["status"].startswith("confirmed") else 1
-    if model is not None:
-        order = {"likely": 0, "possible": 1, "unlikely": 2}
-        rows.sort(key=lambda rp: (conf(rp), order.get(rp[0]["status"].replace("confirmed by 2nd image - ", "").split()[0], 1),
-                                  -rp[1]["streak"].get("mscore", 0.0)))
-    else:
-        rows.sort(key=lambda rp: (conf(rp), -rp[0]["height_m"]))
+    rows.sort(key=rank_key)
     for i, (r, p) in enumerate(rows, 1):
         r["name"] = f"AUTO-{i:04d}"
     log(f"{len(rows)} objects at or above {min_h:.0f} m "
@@ -1531,12 +1557,7 @@ def run_mosques(opt, log=print, progress=lambda f: None, stop=lambda: False):
         rows.append((rr, dict(inside=True, col=s["start"][0], row=s["start"][1], streak=s, chip=s.get("chip"), vec=s.get("vec"))))
     if opt.get("second"):
         second_view_check(rows, img, opt, el, log=log, progress=progress, stop=stop)
-    order = {"likely": 0, "possible": 1, "unlikely": 2}
-    def _cls(st):
-        st = st.replace("confirmed by 2nd image - ", "")
-        return order.get(st.split()[0], 1)
-    rows.sort(key=lambda rp: (0 if rp[0]["status"].startswith("confirmed") else 1, _cls(rp[0]["status"]),
-                              -(rp[1]["streak"].get("mscore", 0.0)), -rp[0]["height_m"]))
+    rows.sort(key=rank_key)
     for i, (r, p) in enumerate(rows, 1):
         r["name"] = f"MNR-{i:04d}"
     n_l = sum(1 for r, _ in rows if r["status"].startswith("likely"))
@@ -1625,7 +1646,7 @@ def selftest(folder):
         o = dict(image=tif, out_dir=os.path.join(folder, "selftest_second"), max_shadow_m=80, sun_elev=el, shadow_az=None, min_height=10,
                  mosques=mcsv, second=tif)
         got = run_mosques(o, log=print)
-        n_c = sum(1 for r in got if r["status"].startswith("confirmed"))
+        n_c = sum(1 for r in got if "2nd image agrees" in r["status"])
         print(f"Second image check: {n_c} of {len(got)} confirmed", "OK" if n_c == len(towers) else "FAILED")
         ok = ok and n_c == len(towers)
     except Exception as ex:

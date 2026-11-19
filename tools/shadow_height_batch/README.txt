@@ -1,4 +1,4 @@
-SHADOW HEIGHT BATCH 3.1  -  heights of minarets, towers, poles and pylons from satellite shadows
+SHADOW HEIGHT BATCH 3.2  -  heights of minarets, towers, poles and pylons from satellite shadows
 ================================================================================================
 
 WHAT IT DOES
@@ -34,7 +34,7 @@ THE LEARNING LOOP (do this for the first few images, then the automatic results 
 The log after training shows the quality (AUC: 0.5 = guessing, 1.0 = perfect) and how much of the list you need to
 look at to find half / 85% of the real objects.
 
-SECOND IMAGE CHECK (NEW in 3.1) - the strongest filter
+SECOND IMAGE CHECK (NEW in 3.1/3.2) - the strongest filter
 A real minaret / tower casts a shadow from the SAME base in a second image of another date, and the height measured there
 must agree. Walls, gaps and kerbs fail this test. Give a second view in "Second image check":
    - ArcGIS MapServer (cached tiles), e.g.  https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer
@@ -43,12 +43,14 @@ must agree. Walls, gaps and kerbs fail this test. Give a second view in "Second 
    - WMS URL (GetMap, EPSG:4326)
    - or an image file (GeoTIFF/JP2) of another date
 Small windows (about 120 m) are fetched around each candidate only. The program lines the two images up, measures the shadow
-again and calibrates the second image's sun from the candidates (or enter its sun elevation / shadow direction).
-Status then starts with "confirmed by 2nd image" (shadow and height agree), or ends with "2nd image: no matching shadow /
-different height". Confirmed results are listed first.
-Test on Riyadh with World Imagery (WV03 5 Sep 2025 / GE01 8 Dec 2025 / WV02 23 Sep 2025) against your 30 checked results:
-10 of your 21 real minarets confirmed, 1 of 9 false ones -> about 9 in 10 "confirmed" results are real minarets.
-Not confirmed does NOT mean wrong: in the second image the shadow may fall on a building or a car may hide the base.
+again and works out the second image's sun: from its acquisition date (ArcGIS World Imagery tells the date of every patch)
+by finding the time of day that fits the shadows, or from the candidates, or from the values you enter.
+Status then ends with "2nd image agrees" (shadow and height agree) or "2nd image: no matching shadow / different height".
+Results are ordered: likely + agrees, likely, possible + agrees, possible, unlikely.
+Riyadh test (K763X53392 clip, 567 candidates, World Imagery WV03 5 Sep 2025 ~11:00 / GE01 8 Dec 2025 ~10:00 / WV02 23 Sep 2025):
+   independent sample checked in World Imagery: "likely + agrees" about 7 in 10 are real minarets,
+   "possible + agrees" about 1-3 in 10, "unlikely + agrees" none.
+   Not agreeing does NOT mean wrong: in the second image the shadow may fall on a building, or a car may hide the base.
 Use services under your organisation's licence (Esri World Imagery: ArcGIS account / terms of use); add a token if required.
 Internet access is needed for URLs.
 
