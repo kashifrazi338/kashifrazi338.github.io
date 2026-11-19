@@ -1,0 +1,35 @@
+name: service-run
+on:
+  workflow_dispatch:
+  push:
+    branches: [gba-obstacles]
+    paths: ['tools/service_run/**', '.github/workflows/service-run.yml']
+permissions:
+  contents: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - run: pip install rasterio numpy opencv-python-headless pyshp pillow
+      - name: Minarets around mosques - World Imagery URL only, sun from the service date
+        working-directory: tools/service_run
+        run: python shadow_height_batch.py --mosques-auto --image "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer" --area area.csv --out out_mosques 2>&1 | grep -vE "searched|checked" | tee log_mosques.txt
+      - name: Whole-area scan - same URL
+        working-directory: tools/service_run
+        run: |
+          cp out_mosques/service_image.tif .
+          python shadow_height_batch.py --scan --image service_image.tif --area area.csv --out out_scan --date $(grep -o "acquisition date [0-9-]*" log_mosques.txt | head -1 | awk '{print $3}') 2>&1 | grep -vE "tiles scanned" | tee log_scan.txt
+      - name: Commit
+        run: |
+          mkdir -p results_service
+          cd tools/service_run
+          rm -f out_mosques/service_image.tif
+          zip -q -r ../../results_service/worldimagery_minarets_around_mosques.zip out_mosques log_mosques.txt
+          zip -q -r ../../results_service/worldimagery_whole_area_scan.zip out_scan log_scan.txt
+          cd ../..
+          git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results_service && git commit -m "Service-only results ${{ github.run_id }} [skip ci]" && (git push || (git pull --rebase && git push))
