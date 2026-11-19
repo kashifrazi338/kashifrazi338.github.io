@@ -532,11 +532,13 @@ def write_outputs(rows, img, opt, shaz, el, el_src, log):
         dr.rectangle([0, 0, 260, 17], fill=(0, 0, 0)); dr.text((3, 2), lab, fill=(255, 255, 0), font=font)
         tiles.append(im)
     if tiles:
-        cols_ = 6
-        sheet = Image.new("RGB", (260 * min(cols_, len(tiles)), 260 * ((len(tiles) + cols_ - 1) // cols_)))
-        for i, t in enumerate(tiles):
-            sheet.paste(t, ((i % cols_) * 260, (i // cols_) * 260))
-        sheet.save(base + "_review.jpg", quality=88)
+        cols_, per = 6, 240                                  # JPEG height limit: several sheets of 40 rows
+        for k in range(0, len(tiles), per):
+            part = tiles[k:k + per]
+            sheet = Image.new("RGB", (260 * min(cols_, len(part)), 260 * ((len(part) + cols_ - 1) // cols_)))
+            for i, t in enumerate(part):
+                sheet.paste(t, ((i % cols_) * 260, (i // cols_) * 260))
+            sheet.save(base + ("_review.jpg" if k == 0 else f"_review_{k // per + 1}.jpg"), quality=88)
     # candidate chips (for training) and the clickable review page
     chips = [(str(r["name"]), p["chip"], p["vec"]) for r, p in rows if p.get("chip") is not None and p.get("vec") is not None]
     if chips:
@@ -1540,14 +1542,15 @@ def run_scan(opt, log=print, progress=lambda f: None, stop=lambda: False):
     if opt.get("second"):
         second_view_check(rows, img, opt, el, log=log, progress=progress, stop=stop)
     rows.sort(key=rank_key)
-    cap = int(opt.get("max_results", 2000))
+    cap = int(opt.get("max_results", 1000))
     if len(rows) > cap:
         log(f"Keeping the best {cap} of {len(rows)} candidates (ranked) - in dense city blocks most of the rest are walls and gaps.")
         rows = rows[:cap]
     for i, (r, p) in enumerate(rows, 1):
         r["name"] = f"AUTO-{i:04d}"
-    log(f"{len(rows)} objects at or above {min_h:.0f} m "
-        f"({sum(1 for r, _ in rows if r['status'] == 'ok')} ok, {sum(1 for r, _ in rows if r['status'] != 'ok')} to check)")
+    from collections import Counter as _C
+    _c = _C(r["status"].split()[0] for r, _ in rows)
+    log(f"{len(rows)} objects at or above {min_h:.0f} m (" + ", ".join(f"{v} {k}" for k, v in _c.most_common()) + ")")
     opt = dict(opt); opt.setdefault("out_name", "auto_scan_heights")
     write_outputs(rows, img, opt, shaz, el, el_src, log)
     return [r for r, _ in rows]
