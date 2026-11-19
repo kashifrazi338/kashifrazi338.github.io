@@ -1,4 +1,4 @@
-SHADOW HEIGHT BATCH 3.2  -  heights of minarets, towers, poles and pylons from satellite shadows
+SHADOW HEIGHT BATCH 3.3  -  heights of minarets, towers, poles and pylons from satellite shadows
 ================================================================================================
 
 WHAT IT DOES
@@ -60,6 +60,21 @@ K763X53392 clip. Test result (cross-validated): AUC 0.74 (0.5 = guessing). It st
 In dense blocks, narrow gaps between buildings still look like minaret shadows, so ALWAYS check the review page.
 About 200-300 labelled examples from your own imagery should improve it clearly.
 Shadows that fall into a dark courtyard or onto another building's shadow cannot be seen - those minarets are missed.
+
+WORK FROM A SERVICE URL ONLY - NO IMAGE FILE (NEW in 3.3)
+Paste the imagery service into the Image box instead of a file:
+   ArcGIS MapServer   https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer
+   WMS                https://yourserver/geoserver/wms?LAYERS=riyadh_2025   (put LAYERS= in the URL)
+   ArcGIS WMS         https://yourserver/arcgis/services/Imagery/Riyadh/MapServer/WMSServer?LAYERS=0
+   WMTS / XYZ         https://yourserver/.../{TileMatrix}/{TileRow}/{TileCol}.jpg   or   .../{z}/{x}/{y}.jpg
+   (a Map Viewer link "...mapviewer/index.html?url=<service>" also works - the service URL is taken out of it)
+and choose "Limit to area" (KML/KMZ/SHP/CSV, or an image file whose extent is the area) and an Output folder.
+The program downloads only that area (up to 25 km2 per run) at 0.3 m into service_image.tif in the output folder and
+extracts from it. Sun: World Imagery tells the acquisition date of the area - leave the sun options as they are
+(or choose "Image date" and leave it empty) and the program uses that date and the shadow direction it measures
+(about +-10% on heights). If the service gives no date (plain WMS), enter the sun elevation or the date.
+If the area mixes several acquisitions the log warns you: use smaller areas, one acquisition each.
+Use services under your organisation's licence; add a token in the second-image token box if required.
 
 COORDINATES
 Results are in the coordinates of the image itself: pins sit on the shadows when you overlay the shapefile/KML on the

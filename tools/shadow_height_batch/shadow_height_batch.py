@@ -32,7 +32,7 @@ import shapefile
 from PIL import Image, ImageDraw, ImageFont
 
 APP = "Shadow Height Batch"
-VERSION = "3.2"
+VERSION = "3.3"
 D2R, R2D = math.pi / 180.0, 180.0 / math.pi
 FT = 3.28084
 # automatic modes: minaret / mast shadows are 1.4-2.5 m wide; gaps between buildings and kerb lines are thinner
@@ -880,6 +880,27 @@ draw();
 
 
 # ======================================================================= second image (basemap / WMS / WMTS / file) check
+def normalize_service_url(u):
+    """Accept what people copy: a Map Viewer / Scene Viewer link (...?url=<service>), a REST page URL with ?f=..., spaces."""
+    import urllib.parse
+    u = (u or "").strip().strip('"')
+    m_ = re.search(r"[?&]url=(https?(?:%3A|:)[^&\s]+)", u, re.I)
+    if m_:
+        return normalize_service_url(urllib.parse.unquote(m_.group(1)))
+    if not u.lower().startswith("http"):
+        return u
+    q = urllib.parse.urlparse(u)
+    qs = urllib.parse.parse_qs(q.query)
+    for k in ("url", "URL", "layers_url", "service"):
+        if k in qs and qs[k] and qs[k][0].lower().startswith("http"):
+            return normalize_service_url(urllib.parse.unquote(qs[k][0]))
+    if "/mapserver" in u.lower() or "/imageserver" in u.lower():
+        base = u.split("?")[0].rstrip("/")
+        keep = {k: v for k, v in qs.items() if k.lower() == "token"}
+        return base + ("?" + urllib.parse.urlencode({k: v[0] for k, v in keep.items()}) if keep else "")
+    return u
+
+
 class SecondImage:
     """A second, independent view: an image file, an ArcGIS MapServer (cached tiles), an XYZ/WMTS tile URL with {z}/{x}/{y},
     or a WMS GetMap URL. Small windows are fetched around each candidate and saved as temporary GeoTIFFs (EPSG:4326)."""
@@ -887,7 +908,7 @@ class SecondImage:
 
     def __init__(self, spec, workdir, zoom=19, token=None, log=print):
         import tempfile
-        self.spec = spec.strip(); self.zoom = int(zoom); self.token = token; self.log = log
+        self.spec = normalize_service_url(spec); self.zoom = int(zoom); self.token = token; self.log = log
         self.dir = tempfile.mkdtemp(prefix="shb2_", dir=workdir if workdir and os.path.isdir(workdir) else None)
         self.kind = "file"
         u = self.spec.lower()
@@ -942,57 +963,72 @@ class SecondImage:
         self._meta[key] = val
         return val
 
-    def window(self, lat, lon, half_m=60.0):
-        """Img of the second view around (lat, lon), resampled to a 0.3 m geographic grid, or None."""
+    def fetch_grid(self, T, w, h):
+        """Imagery on a geographic grid (affine T in EPSG:4326, w x h pixels) as float32 (3, h, w); zeros where missing."""
         from rasterio.warp import reproject, Resampling
         from rasterio.transform import from_origin
         import io
-        res_m = 0.3
-        n = int(2 * half_m / res_m)
-        dlat = res_m / 110700.0; dlon = res_m / (111320.0 * math.cos(math.radians(lat)))
-        T = from_origin(lon - half_m / (111320.0 * math.cos(math.radians(lat))), lat + half_m / 110700.0, dlon, dlat)
-        out = np.zeros((3, n, n), np.float32)
+        out = np.zeros((3, h, w), np.float32)
+        l, t = T.c, T.f; r_, b_ = l + w * T.a, t + h * T.e
         if self.kind == "file":
             with rasterio.open(self.spec) as s:
                 bands = [1, 2, 3] if s.count >= 3 else [1, 1, 1]
                 for i, b in enumerate(bands):
                     reproject(rasterio.band(s, b), out[i], dst_transform=T, dst_crs="EPSG:4326", resampling=Resampling.bilinear)
-        elif self.kind == "wms":
-            l, t = T.c, T.f; r_, b_ = l + n * dlon, t - n * dlat
-            base = self.spec
-            sep = "&" if "?" in base else "?"
-            u = base
+            return out
+        if self.kind == "wms":
+            base = self.spec; u = base
             if "request=getmap" not in base.lower():
-                u = base + sep + "SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&STYLES=&FORMAT=image/jpeg&SRS=EPSG:4326"
-            u += f"&BBOX={l},{b_},{r_},{t}&WIDTH={n}&HEIGHT={n}"
-            im = np.array(Image.open(io.BytesIO(self._get(u))).convert("RGB").resize((n, n)))
-            out = np.moveaxis(im.astype(np.float32), -1, 0)
-        else:
-            Z = self.zoom; O = math.pi * self.R; ts = 2 * O / 2 ** Z
-            x = self.R * math.radians(lon); y = self.R * math.log(math.tan(math.pi / 4 + math.radians(lat) / 2))
-            k = half_m / math.cos(math.radians(lat)) + 5
-            tx0, tx1 = int((x - k + O) // ts), int((x + k + O) // ts)
-            ty0, ty1 = int((O - (y + k)) // ts), int((O - (y - k)) // ts)
-            mos = np.zeros(((ty1 - ty0 + 1) * 256, (tx1 - tx0 + 1) * 256, 3), np.uint8)
-            for ty in range(ty0, ty1 + 1):
-                for tx in range(tx0, tx1 + 1):
+                u = base + ("&" if "?" in base else "?") + "SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&STYLES=&FORMAT=image/jpeg&SRS=EPSG:4326"
+            u += f"&BBOX={l},{b_},{r_},{t}&WIDTH={w}&HEIGHT={h}"
+            data = self._get(u)
+            try:
+                im = Image.open(io.BytesIO(data)).convert("RGB")
+            except Exception:
+                raise ValueError("WMS did not return an image: " + data[:300].decode("utf-8", "replace"))
+            return np.moveaxis(np.array(im.resize((w, h))).astype(np.float32), -1, 0)
+        Z = self.zoom; O = math.pi * self.R; ts = 2 * O / 2 ** Z
+        mx = lambda lo: self.R * math.radians(lo)
+        my = lambda la: self.R * math.log(math.tan(math.pi / 4 + math.radians(la) / 2))
+        tx0, tx1 = int((mx(l) + O) // ts), int((mx(r_) + O) // ts)
+        ty0, ty1 = int((O - my(t)) // ts), int((O - my(b_)) // ts)
+        mos = np.zeros(((ty1 - ty0 + 1) * 256, (tx1 - tx0 + 1) * 256, 3), np.uint8)
+        if not hasattr(self, "_cache"):
+            self._cache = {}
+        for ty in range(ty0, ty1 + 1):
+            for tx in range(tx0, tx1 + 1):
+                key = (Z, tx, ty)
+                if key not in self._cache:
                     if self.kind == "arcgis":
                         u = f"{self.base}/tile/{Z}/{ty}/{tx}"
                     else:
                         u = (self.spec.replace("{z}", str(Z)).replace("{x}", str(tx)).replace("{y}", str(ty))
                              .replace("{TileMatrix}", str(Z)).replace("{TileCol}", str(tx)).replace("{TileRow}", str(ty)))
                     try:
-                        im = Image.open(io.BytesIO(self._get(u))).convert("RGB")
-                        mos[(ty - ty0) * 256:(ty - ty0 + 1) * 256, (tx - tx0) * 256:(tx - tx0 + 1) * 256] = np.array(im)[:256, :256]
+                        self._cache[key] = np.array(Image.open(io.BytesIO(self._get(u))).convert("RGB"))[:256, :256]
                     except Exception:
-                        pass
-            if mos.max() == 0:
-                return None
-            from rasterio.transform import from_origin as fo
-            src_T = fo(tx0 * ts - O, O - ty0 * ts, ts / 256, ts / 256)
-            for i in range(3):
-                reproject(mos[:, :, i].astype(np.float32), out[i], src_transform=src_T, src_crs="EPSG:3857", dst_transform=T,
-                          dst_crs="EPSG:4326", resampling=Resampling.bilinear)
+                        self._cache[key] = None
+                    if len(self._cache) > 3000:
+                        self._cache.pop(next(iter(self._cache)))
+                tile = self._cache[key]
+                if tile is not None:
+                    mos[(ty - ty0) * 256:(ty - ty0) * 256 + tile.shape[0], (tx - tx0) * 256:(tx - tx0) * 256 + tile.shape[1]] = tile
+        if mos.max() == 0:
+            return out
+        src_T = from_origin(tx0 * ts - O, O - ty0 * ts, ts / 256, ts / 256)
+        for i in range(3):
+            reproject(mos[:, :, i].astype(np.float32), out[i], src_transform=src_T, src_crs="EPSG:3857", dst_transform=T,
+                      dst_crs="EPSG:4326", resampling=Resampling.bilinear)
+        return out
+
+    def window(self, lat, lon, half_m=60.0):
+        """Path of a temporary GeoTIFF of the second view around (lat, lon) at 0.3 m, or None."""
+        from rasterio.transform import from_origin
+        res_m = 0.3
+        n = int(2 * half_m / res_m)
+        dlat = res_m / 110700.0; dlon = res_m / (111320.0 * math.cos(math.radians(lat)))
+        T = from_origin(lon - half_m / (111320.0 * math.cos(math.radians(lat))), lat + half_m / 110700.0, dlon, dlat)
+        out = self.fetch_grid(T, n, n)
         if out.max() <= 0:
             return None
         self.n += 1
@@ -1004,6 +1040,96 @@ class SecondImage:
     def close(self):
         import shutil
         shutil.rmtree(self.dir, ignore_errors=True)
+
+
+def is_service(x):
+    return isinstance(x, str) and normalize_service_url(x).lower().startswith("http")
+
+
+def extent_for_service(opt):
+    """Lat/lon box to download from a service: the 'Limit to area' file, else the points file (+250 m)."""
+    src = opt.get("area") or opt.get("points") or opt.get("mosques")
+    if not src:
+        raise ValueError("With an imagery service as the image, choose 'Limit to area' (a KML/KMZ/SHP/CSV of the area to process, "
+                         "or an image file covering it) or a points file - the program downloads only that area.")
+    lls = area_latlons(src) if src == opt.get("area") else [(p["lat"], p["lon"]) for p in read_points(src)]
+    dn, de = opt.get("offset_n", 0.0) or 0.0, opt.get("offset_e", 0.0) or 0.0
+    la = [a - dn / 110700.0 for a, b in lls]; lo = [b - de / (111320.0 * math.cos(math.radians(a))) for a, b in lls]
+    buf = 0.0 if opt.get("area") else 250.0
+    la0, la1 = min(la) - buf / 110700.0, max(la) + buf / 110700.0
+    k = 111320.0 * math.cos(math.radians((la0 + la1) / 2))
+    lo0, lo1 = min(lo) - buf / k, max(lo) + buf / k
+    return la0, lo0, la1, lo1
+
+
+def download_service_image(opt, log=print, progress=lambda f: None, stop=lambda: False):
+    """Download the processing area from a WMS / WMTS / ArcGIS MapServer into a GeoTIFF (EPSG:4326, ~0.3 m) in the output folder."""
+    spec = opt["image"].strip()
+    la0, lo0, la1, lo1 = extent_for_service(opt)
+    k = 111320.0 * math.cos(math.radians((la0 + la1) / 2))
+    wm, hm = (lo1 - lo0) * k, (la1 - la0) * 110700.0
+    km2 = wm * hm / 1e6
+    lim = opt.get("max_service_km2", 25.0)
+    if km2 > lim:
+        raise ValueError(f"The area is {km2:.1f} km2 - larger than {lim:.0f} km2 per run. Split it into smaller areas "
+                         "(several 'Limit to area' files) or use an exported image.")
+    res_m = opt.get("service_res_m", 0.3)
+    W, H = int(wm / res_m) + 1, int(hm / res_m) + 1
+    from rasterio.transform import from_origin
+    T = from_origin(lo0, la1, (lo1 - lo0) / W, (la1 - la0) / H)
+    os.makedirs(opt["out_dir"], exist_ok=True)
+    out = os.path.join(opt["out_dir"], "service_image.tif")
+    src = SecondImage(spec, opt["out_dir"], zoom=opt.get("service_zoom", 19), token=opt.get("service_token") or opt.get("second_token"), log=log)
+    log(f"Downloading {km2:.2f} km2 from the service ({src.kind}) at {res_m} m: {W} x {H} px ...")
+    dates = set()
+    try:
+        for fy in (0.2, 0.5, 0.8):
+            for fx in (0.2, 0.5, 0.8):
+                d_ = src.date(la1 - fy * (la1 - la0), lo0 + fx * (lo1 - lo0))
+                if d_:
+                    dates.add(d_)
+        B = 1024
+        prof = dict(driver="GTiff", width=W, height=H, count=3, dtype="uint8", crs="EPSG:4326", transform=T, tiled=True,
+                    blockxsize=256, blockysize=256, compress="deflate", BIGTIFF="IF_SAFER")
+        blocks = [(r, c) for r in range(0, H, B) for c in range(0, W, B)]
+        filled = 0
+        with rasterio.open(out, "w", **prof) as dst:
+            for i, (r, c) in enumerate(blocks):
+                if stop():
+                    raise ValueError("Stopped by user.")
+                progress(i / len(blocks))
+                h_, w_ = min(B, H - r), min(B, W - c)
+                Tb = rasterio.transform.Affine(T.a, 0, T.c + c * T.a, 0, T.e, T.f + r * T.e)
+                a = src.fetch_grid(Tb, w_, h_)
+                filled += int((a.max(0) > 0).sum())
+                dst.write(np.clip(a, 0, 255).astype(np.uint8), window=Window(c, r, w_, h_))
+        progress(1.0)
+    finally:
+        src.close()
+    if filled < 0.05 * W * H:
+        raise ValueError("The service returned (almost) no imagery for this area - check the URL, layer name, token and zoom level.")
+    log(f"Saved {os.path.basename(out)} ({100.0 * filled / (W * H):.0f}% covered).")
+    if dates:
+        log("Acquisition(s) in this area: " + ", ".join(sorted(dates)))
+        if len(dates) > 1:
+            log("WARNING: the area mixes several acquisitions with different sun angles - heights are only right for the "
+                "acquisition matching the sun you set. Use smaller areas, one acquisition each.")
+    return out, sorted(dates)
+
+
+def prepare_image(opt, log=print, progress=lambda f: None, stop=lambda: False):
+    """If the image is a service URL, download the area and fill the date from the service metadata when the sun is to come from the date."""
+    if not is_service(opt.get("image")):
+        return opt
+    opt = dict(opt)
+    path, dates = download_service_image(opt, log, progress, stop)
+    opt["image"] = path
+    if opt.get("sun_elev") is None and opt.get("date") is None and not opt.get("known_ok") and dates:
+        m_ = re.match(r"(\d{4})(\d{2})(\d{2})", dates[0])
+        if m_:
+            opt["date"] = dt.date(int(m_.group(1)), int(m_.group(2)), int(m_.group(3)))
+            log(f"Sun from the service's acquisition date {opt['date']} (time solved from the shadow direction).")
+    return opt
 
 
 def _register(img, w_path, lat, lon, half_m=60.0):
@@ -1153,10 +1279,21 @@ def second_view_check(rows, img, opt, el1, log=print, progress=lambda f: None, s
 
 
 # ======================================================================= automatic scan (no points needed)
-def read_aoi(path, img, buffer_m=0, dn=0.0, de=0.0):
-    """Bounding box (col0,row0,col1,row1) in image pixels of the features in a KML/KMZ/SHP/CSV file."""
+RASTER_EXT = (".tif", ".tiff", ".jp2", ".img", ".ecw", ".sid", ".png", ".jpg")
+
+
+def area_latlons(path):
+    """Coordinates (lat, lon) of an area file: KML/KMZ, SHP (WGS84), CSV/TXT points, or an image file (its four corners)."""
     lls = []
     ext = os.path.splitext(path)[1].lower()
+    if ext in RASTER_EXT:
+        from rasterio.warp import transform as _tr
+        with rasterio.open(path) as d:
+            b = d.bounds
+            xs, ys = [b.left, b.right, b.right, b.left], [b.top, b.top, b.bottom, b.bottom]
+            if d.crs and not d.crs.is_geographic:
+                xs, ys = _tr(d.crs, "EPSG:4326", xs, ys)
+        return [(y, x) for x, y in zip(xs, ys)]
     if ext in (".kml", ".kmz"):
         if ext == ".kmz":
             with zipfile.ZipFile(path) as z:
@@ -1175,7 +1312,19 @@ def read_aoi(path, img, buffer_m=0, dn=0.0, de=0.0):
         for sh in shapefile.Reader(path).shapes():
             lls += [(y, x) for x, y in sh.points]
     else:
-        lls = [(p["lat"], p["lon"]) for p in read_points(path)]
+        try:
+            lls = [(p["lat"], p["lon"]) for p in read_points(path)]
+        except Exception:
+            lls = []
+    if not lls:
+        raise ValueError(f"'Limit to area' file {os.path.basename(path)} has no coordinates I can read. Use a KML/KMZ, a WGS84 shapefile, "
+                         "a CSV with lat/lon columns (corner points are enough), or an image file whose extent is the area.")
+    return lls
+
+
+def read_aoi(path, img, buffer_m=0, dn=0.0, de=0.0):
+    """Bounding box (col0,row0,col1,row1) in image pixels of the features in an area file."""
+    lls = area_latlons(path)
     if not lls:
         raise ValueError("No coordinates found in the area file.")
     px = [img.to_pixel(la - dn / 110700.0, lo - de / (111320.0 * math.cos(la * D2R))) for la, lo in lls]
@@ -1391,6 +1540,10 @@ def run_scan(opt, log=print, progress=lambda f: None, stop=lambda: False):
     if opt.get("second"):
         second_view_check(rows, img, opt, el, log=log, progress=progress, stop=stop)
     rows.sort(key=rank_key)
+    cap = int(opt.get("max_results", 2000))
+    if len(rows) > cap:
+        log(f"Keeping the best {cap} of {len(rows)} candidates (ranked) - in dense city blocks most of the rest are walls and gaps.")
+        rows = rows[:cap]
     for i, (r, p) in enumerate(rows, 1):
         r["name"] = f"AUTO-{i:04d}"
     log(f"{len(rows)} objects at or above {min_h:.0f} m "
@@ -1710,7 +1863,7 @@ def gui():
         if browse:
             ttk.Button(frm, text="Browse...", command=browse).grid(row=r, column=2, padx=4)
     vec = [("Vector", "*.csv *.txt *.shp *.kml *.kmz"), ("All", "*.*")]
-    row(1, "Image (GeoTIFF / JP2)", v["image"], lambda: v["image"].set(filedialog.askopenfilename(filetypes=[("Images", "*.tif *.tiff *.jp2 *.img *.ecw"), ("All", "*.*")])))
+    row(1, "Image (file or service URL)", v["image"], lambda: v["image"].set(filedialog.askopenfilename(filetypes=[("Images", "*.tif *.tiff *.jp2 *.img *.ecw"), ("All", "*.*")])))
     row(2, "Points (CSV / SHP / KML)", v["points"], lambda: v["points"].set(filedialog.askopenfilename(filetypes=vec)))
     row(3, "Mosques file (optional)", v["mosques"], lambda: v["mosques"].set(filedialog.askopenfilename(filetypes=vec)))
     row(4, "Limit to area (optional)", v["area"], lambda: v["area"].set(filedialog.askopenfilename(filetypes=vec)))
@@ -1767,21 +1920,48 @@ def gui():
                      second=v["second"].get().strip() or None, second_token=v["token"].get().strip() or None,
                      second_elev=num("elev2"), second_az=num("az2"))
             if not o["image"]:
-                raise ValueError("Choose the image.")
+                raise ValueError("Choose the image: a GeoTIFF / JP2 file, or paste an imagery service URL (WMS / WMTS / ArcGIS MapServer) "
+                                 "into the Image box together with a 'Limit to area' file.")
+            if is_service(o["image"]) and not v["out"].get().strip():
+                raise ValueError("With an imagery service as the image, choose an output folder.")
             if j == "points" and not o["points"]:
                 raise ValueError("Choose the points file (or pick an automatic mode).")
-            if mode.get() == "elev":
-                o["sun_elev"] = num("elev")
+            elev_txt, date_txt = v["elev"].get().strip(), v["date"].get().strip()
+            sun = mode.get()
+            if sun == "known":
+                n_known = 0
+                if o["points"]:
+                    try:
+                        n_known = sum(1 for q in read_points(o["points"]) if q.get("known_height"))
+                    except Exception:
+                        n_known = 0
+                if n_known < 2:
+                    if elev_txt:
+                        sun = "elev"; log(f"No points with 2+ known heights - using the sun elevation you entered ({elev_txt} deg).")
+                    elif date_txt:
+                        sun = "date"; log(f"No points with 2+ known heights - using the image date you entered ({date_txt}).")
+                    elif is_service(o["image"]):
+                        sun = "service"; o["use_known"] = False
+                    else:
+                        raise ValueError("Sun elevation: there is no points file with 2+ known heights. Select 'Sun elevation from metadata' "
+                                         "and type it, or 'Image date' and type the date.")
+            if sun == "elev":
+                o["sun_elev"] = num("elev"); o["use_known"] = False
                 if o["sun_elev"] is None:
                     raise ValueError("Enter the sun elevation.")
-            if mode.get() == "date":
-                o["date"] = dt.date.fromisoformat(v["date"].get().strip())
+            if sun == "date":
+                o["use_known"] = False
+                try:
+                    o["date"] = dt.date.fromisoformat(date_txt)
+                except Exception:
+                    raise ValueError("Image date must look like 2025-03-30.")
                 if v["time"].get().strip():
                     hh, mm = v["time"].get().strip().split(":")[:2]; o["time"] = dt.time(int(hh), int(mm))
-            if mode.get() == "known" and not o["points"]:
-                raise ValueError("Known-height calibration needs a points file with known_height_m. Or choose metadata elevation / date.")
             prog = lambda f: root.after(0, lambda: pb.configure(value=f * 100))
             stop = lambda: stop_flag["stop"]
+            o = prepare_image(o, log=log, progress=prog, stop=stop)
+            if o.get("sun_elev") is None and o.get("date") is None and not o.get("use_known", True):
+                raise ValueError("The service gives no acquisition date here - enter the sun elevation or the image date.")
             if j == "points":
                 run_batch(o, log=log, progress=prog)
             elif j == "mosques":
@@ -1859,6 +2039,11 @@ def main():
         o["date"] = dt.date.fromisoformat(a.date)
         if a.time:
             hh, mm = a.time.split(":")[:2]; o["time"] = dt.time(int(hh), int(mm))
+    if is_service(o.get("image")):
+        o["area"] = a.area; o["mosques"] = a.mosques
+        if not o.get("out_dir"):
+            raise SystemExit("--out is required with an imagery service")
+        o = prepare_image(o)
     if a.mosques_auto or a.mosques:
         o["area"] = a.area; o["mosques"] = a.mosques
         run_mosques(o)
