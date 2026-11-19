@@ -21,7 +21,7 @@ jobs:
       - name: Test source
         shell: bash
         run: |
-          cp tools/shadow_height_batch/mosques_ksa.csv.gz .
+          cp tools/shadow_height_batch/mosques_ksa.csv.gz tools/shadow_height_batch/shadow_model.npz tools/shadow_height_batch/shadow_training_data.npz .
           python tools/shadow_height_batch/shadow_height_batch.py --selftest src_test
           SHB_GUI_SMOKE=gui_src.txt python tools/shadow_height_batch/shadow_height_batch.py && cat gui_src.txt
       - name: Compile (native code, no Python source inside)
@@ -30,9 +30,11 @@ jobs:
           --enable-plugin=tk-inter
           --include-package=rasterio --include-package-data=rasterio --include-module=numpy._core._exceptions
           --include-data-files=tools/shadow_height_batch/mosques_ksa.csv.gz=mosques_ksa.csv.gz
+          --include-data-files=tools/shadow_height_batch/shadow_model.npz=shadow_model.npz
+          --include-data-files=tools/shadow_height_batch/shadow_training_data.npz=shadow_training_data.npz
           --nofollow-import-to=pytest --nofollow-import-to=IPython --nofollow-import-to=matplotlib
           --windows-console-mode=attach
-          --company-name="Shadow Height" --product-name="Shadow Height Batch" --file-version=2.0.0.0 --product-version=2.0.0.0
+          --company-name="Shadow Height" --product-name="Shadow Height Batch" --file-version=3.0.0.0 --product-version=3.0.0.0
           --output-filename=ShadowHeightBatch.exe --output-dir=build
           tools/shadow_height_batch/shadow_height_batch.py
       - name: Test exe
@@ -46,7 +48,7 @@ jobs:
         run: |
           mkdir -p results_tool pkg
           cp build/ShadowHeightBatch.exe tools/shadow_height_batch/README.txt tools/shadow_height_batch/points_template.csv pkg/
-          (cd pkg && 7z a -tzip ../results_tool/ShadowHeightBatch_v2.zip *)
+          (cd pkg && 7z a -tzip ../results_tool/ShadowHeightBatch_v3.zip *)
           cp exe_test.log results_tool/
           git config user.name "github-actions"; git config user.email "actions@github.com"
           git add results_tool

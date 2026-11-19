@@ -1,80 +1,83 @@
-SHADOW HEIGHT BATCH 2.0  -  heights of minarets, towers, poles and pylons from satellite shadows
+SHADOW HEIGHT BATCH 3.0  -  heights of minarets, towers, poles and pylons from satellite shadows
 ================================================================================================
 
 WHAT IT DOES
 Finds the thin dark shadow of a tall object, measures its length and converts it to height:
 height = shadow length x tan(sun elevation).
-Outputs: CSV, shapefile (points + shadow lines), KML for Google Earth, and a review sheet (JPG)
-with an image chip of every result so you can check each shadow by eye.
+Outputs: CSV, shapefiles (points + shadow lines), KML, a review sheet (JPG) and a clickable REVIEW PAGE (HTML).
+NEW in 3.0: a learning model. You mark results Yes/No on the review page, press Train, and the program learns
+what real minarets / towers / pylons look like in YOUR imagery. It gets better every time you train.
 
 START
 Double-click ShadowHeightBatch.exe (no installation, no Python needed).
 Windows may show "Windows protected your PC" the first time: click More info -> Run anyway.
-First start takes 10-20 seconds (the program unpacks itself).
 
-THREE MODES ("What to do" at the top of the window)
+FOUR MODES ("What to do")
 1. Measure heights at my points             - most accurate. You give a point list (on/next to each object).
-2. AUTOMATIC: find minarets around mosques  - no points needed. Uses the built-in list of ~21,000 mosques
-                                              (Saudi Arabia and Gulf, OpenStreetMap), or your own mosques file
-                                              (points or building outlines: SHP / KML / CSV).
-                                              Up to 2 candidate shadows per mosque.
-3. AUTOMATIC: scan whole image / area       - finds every thin tall-object shadow. Use it for pylons, masts and
-                                              poles in OPEN ground (desert, highways). In dense city blocks it gives
-                                              hundreds of false hits (gaps between buildings look the same).
+2. AUTOMATIC: find minarets around mosques  - no points needed. Built-in list of ~21,000 mosques (Saudi Arabia + Gulf,
+                                              OpenStreetMap) or your own mosques file (points or outlines: SHP/KML/CSV).
+                                              Up to 3 candidate shadows per mosque, ranked by the learned model.
+3. AUTOMATIC: scan whole image / area       - every thin tall-object shadow; best for pylons, masts, poles in open ground.
+4. TRAIN                                    - learn from your Yes/No labels (see below).
 
-IMPORTANT FOR THE AUTOMATIC MODES - ALWAYS CHECK THE REVIEW SHEET
-In dense Riyadh blocks, narrow gaps between buildings and wall edges cast thin shadows exactly like minarets,
-so the automatic list contains many false candidates (often more false than true).
-Test on the Riyadh K763X53392 clip (349 mosques from the built-in list, 25 minarets checked by hand):
-   shadow direction entered : 23 of 25 minarets found (19 marked "likely"), 476 candidates in total
-   shadow direction detected: 19 of 25 found, 521 candidates
-   found heights agreed with the hand-checked ones within 0.5 m in most cases.
-So: 1) ENTER THE SHADOW DIRECTION (sun azimuth from the image metadata + 180) - finds more, fewer false hits;
-    2) open minaret_scan_heights_review.jpg, look at each chip, delete the wrong rows (by NAME) in the CSV/shapefile;
-    3) for final heights you may re-run mode 1 on the confirmed points.
-The built-in mosque list is OpenStreetMap: mosques missing there are not searched - use your own mosques file.
+THE LEARNING LOOP (do this for the first few images, then the automatic results improve)
+ a) Run mode 2 or 3. In the output folder open  <name>_review.html  in Chrome/Edge.
+ b) Click the first card, then press  Y  (real minaret / tower / pylon / pole)  or  N  (wall, gap between buildings,
+    tree row, car, kerb). U = unsure. The page moves to the next card automatically.
+    Left picture: north up, magenta tick = shadow start (object base), cyan tick = shadow tip.
+    Right picture: the same shadow turned to point right, magenta brackets = the measured shadow.
+ c) Press "Save labels". Put the downloaded  <name>_labels.csv  into the same output folder.
+    (Alternative: type Y or N in the 'confirm' column of the CSV, or the CONFIRM field of the points shapefile.)
+ d) Mode 4 TRAIN: add one or more such folders, Run. The model (shadow_model.npz) is saved next to the program
+    and used automatically from then on. Every training adds to the earlier examples.
+ e) Share the improvement: copy shadow_model.npz (and shadow_training_data.npz) next to colleagues' ShadowHeightBatch.exe.
+The log after training shows the quality (AUC: 0.5 = guessing, 1.0 = perfect) and how much of the list you need to
+look at to find half / 85% of the real objects.
+
+STARTER MODEL - WHAT TO EXPECT
+The built-in starter model learned from 26 confirmed minarets and 784 rejected shadows in the Riyadh K763X53392 clip.
+Test result (cross-validated): AUC 0.80. The top 21% of candidates hold half of the real minarets, the top 41% hold 85%.
+In dense blocks, narrow gaps between buildings still look like minaret shadows, so ALWAYS check the review page.
+About 200-300 labelled examples from your own imagery should improve it clearly.
+Shadows that fall into a dark courtyard or onto another building's shadow cannot be seen - those minarets are missed.
+
+COORDINATES
+Results are in the coordinates of the image itself: pins sit on the shadows when you overlay the shapefile/KML on the
+same image. Leave "Your data minus image" at 0 unless your reference layer is known to be shifted from the image.
 
 INPUTS
 Image   GeoTIFF (.tif) or JPEG 2000 (.jp2), georeferenced, 0.3-0.6 m pixels work best.
         ECW is not supported - export it first (ArcGIS Pro: Export Raster -> TIFF).
 Points  CSV/TXT, shapefile (WGS84) or KML/KMZ. CSV columns: name, lat, lon (decimal or DMS like 24°34'55"N),
         optional known_height_m. See points_template.csv.
-        In the automatic modes the points file is optional: only to give known heights for sun calibration.
 Mosques file (optional, mode 2)  your own mosque points or outlines. Blank = built-in list.
 Limit to area (optional, modes 2-3)  any KML/SHP/CSV; only its extent (rectangle) is processed.
 
 SUN ELEVATION (choose one, in this order of accuracy)
-a) Known heights: 2 or more points with known_height_m (from a DSM / survey) -> calibrated from the image.
+a) Known heights: 2 or more points with known_height_m -> calibrated from the image.
 b) Sun elevation in degrees from the image metadata (SUN_ELEVATION / sunElevation).
-c) Image date (+ time if known; time zone 3 for Saudi Arabia). Time is solved from the shadow direction.
-MOSAICS: a mosaic made of several acquisitions has a different sun angle in each strip. Run each strip
-separately with "Limit to area" (a KML/SHP of that strip) and its own sun elevation.
-
-OPTIONS
-Shadow direction       blank = detected from the image. If results look wrong, enter it (degrees, object -> shadow tip).
-Search radius (m)      mode 1: how far from your point the shadow may start (25; use 10-15 if points are accurate)
-Longest shadow (m)     ignore streaks longer than this (default 80)
-Report heights above   default 15 m
-Your data minus image  shift between your reference data and the image, metres north / east.
-                       Riyadh ECW mosaic vs. our reference: north 23.9, east -13.5.
-
-OUTPUT (output folder)
-  shadow_heights.*          mode 1          minaret_scan_heights.*   mode 2          auto_scan_heights.*   mode 3
-  .csv                      one row per result: name, status, height_m, low/high, feet, DMS + decimal coords,
-                            shadow length/azimuth/width, sun elevation (mode 2 also the mosque location)
-  _points.shp / _shadow_lines.shp   WGS84 shapefiles      .kml   Google Earth      _review.jpg   image chips
+c) Image date (+ time if known; time zone 3 for Saudi Arabia).
+SHADOW DIRECTION: enter it if you can (= sun azimuth from the metadata + 180). Finds more, fewer false hits.
+MOSAICS: each acquisition strip has its own sun angle - run each strip separately with "Limit to area".
 
 STATUS VALUES
-  ok / likely - verify      measured; automatic results must still be confirmed on the review sheet
-  possible - ...            weaker candidate (2nd shadow at a mosque, thin or faint shadow, very tall)
-  check: ...                measured but unusual - look at the review sheet
+  ok                         measured (mode 1)
+  likely / possible / unlikely (model)   learned-model ranking (automatic modes) - confirm on the review page
+  unlikely - longer than a minaret       very long streak (> 60 m height): usually a wall or kerb shadow
+  check: ...                 measured but unusual - look at the review sheet
   below minimum height / no thin shadow found / outside image
 
-COMMAND LINE (optional)
-  ShadowHeightBatch.exe --image clip.tif --points pts.csv --out results --sun-elev 61.9 --search 15 --offset-n 23.9 --offset-e -13.5
-  ShadowHeightBatch.exe --mosques-auto --image clip.tif --out results --sun-elev 61.9 [--area strip.kml] [--mosques my_mosques.shp]
-  ShadowHeightBatch.exe --scan --image clip.tif --out results --sun-elev 61.9 [--area area.kml]
-  ShadowHeightBatch.exe --selftest test_folder     (checks the installation: must end with SELFTEST PASSED)
+OUTPUT (output folder)
+  shadow_heights.* (mode 1), minaret_scan_heights.* (mode 2), auto_scan_heights.* (mode 3):
+  .csv (with model_score and an empty 'confirm' column), _points.shp, _shadow_lines.shp, .kml, _review.jpg,
+  _review.html (labelling page), _chips.npz (image chips the training uses - keep them with the labels)
 
-SPEED: mode 1 ~1 s per point; mode 2 ~3-6 s per mosque (350 mosques ~ 20-35 min); mode 3 ~3 s per 0.25 km2.
-ACCURACY: typically +/- 2-3 m for clear, unobstructed shadows.
+COMMAND LINE (optional)
+  ShadowHeightBatch.exe --image clip.tif --points pts.csv --out results --sun-elev 61.9 --search 15
+  ShadowHeightBatch.exe --mosques-auto --image clip.tif --out results --sun-elev 61.9 --shadow-az 312 [--area strip.kml]
+  ShadowHeightBatch.exe --scan --image clip.tif --out results --sun-elev 61.9 [--area area.kml]
+  ShadowHeightBatch.exe --train results1 results2            (learn from labelled folders)
+  ShadowHeightBatch.exe --selftest test_folder               (installation check: must end with SELFTEST PASSED)
+
+SPEED: mode 1 ~1 s per point; mode 2 ~3-6 s per mosque; mode 3 ~3 s per 0.25 km2; training a few seconds.
+ACCURACY of heights: typically +/- 2-3 m for clear, unobstructed shadows.

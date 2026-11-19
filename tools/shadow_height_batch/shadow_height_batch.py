@@ -32,7 +32,7 @@ import shapefile
 from PIL import Image, ImageDraw, ImageFont
 
 APP = "Shadow Height Batch"
-VERSION = "2.0"
+VERSION = "3.0"
 D2R, R2D = math.pi / 180.0, 180.0 / math.pi
 FT = 3.28084
 # automatic modes: minaret / mast shadows are 1.4-2.5 m wide; gaps between buildings and kerb lines are thinner
@@ -467,7 +467,7 @@ def write_outputs(rows, img, opt, shaz, el, el_src, log):
     out = opt["out_dir"]; os.makedirs(out, exist_ok=True)
     base = os.path.join(out, opt.get("out_name", "shadow_heights"))
     cols = ["name", "status", "height_m", "height_low_m", "height_high_m", "height_ft", "dms", "lat", "lon", "shadow_m", "shadow_az",
-            "sun_elev", "known_height_m", "error_vs_known_m", "tip_lat", "tip_lon", "input_lat", "input_lon", "width_m", "mosque_lat", "mosque_lon", "sun_source"]
+            "sun_elev", "known_height_m", "error_vs_known_m", "tip_lat", "tip_lon", "input_lat", "input_lon", "width_m", "mosque_lat", "mosque_lon", "model_score", "confirm", "sun_source"]
     with open(base + ".csv", "w", newline="", encoding="utf-8-sig") as f:
         w = csv.DictWriter(f, fieldnames=cols, extrasaction="ignore"); w.writeheader()
         for r, _ in rows:
@@ -476,14 +476,16 @@ def write_outputs(rows, img, opt, shaz, el, el_src, log):
     for kind in ("points", "shadow_lines"):
         sw = shapefile.Writer(f"{base}_{kind}", shapeType=shapefile.POINT if kind == "points" else shapefile.POLYLINE, encoding="utf-8")
         for fd in (("NAME", "C", 40, 0), ("STATUS", "C", 60, 0), ("HEIGHT_M", "F", 8, 1), ("H_LOW_M", "F", 8, 1), ("H_HIGH_M", "F", 8, 1),
-                   ("SHADOW_M", "F", 8, 2), ("SHADOW_AZ", "F", 6, 1), ("SUN_ELEV", "F", 6, 2), ("DMS", "C", 40, 0)):
+                   ("SHADOW_M", "F", 8, 2), ("SHADOW_AZ", "F", 6, 1), ("SUN_ELEV", "F", 6, 2), ("DMS", "C", 40, 0),
+                   ("MODEL", "F", 8, 2), ("CONFIRM", "C", 3, 0)):
             sw.field(*fd)
         for r, _ in ok:
             if kind == "points":
                 sw.point(r["lon"], r["lat"])
             else:
                 sw.line([[[r["lon"], r["lat"]], [r["tip_lon"], r["tip_lat"]]]])
-            sw.record(str(r["name"])[:40], r["status"][:60], r["height_m"], r["height_low_m"], r["height_high_m"], r["shadow_m"], r["shadow_az"], r["sun_elev"], r["dms"])
+            sw.record(str(r["name"])[:40], r["status"][:60], r["height_m"], r["height_low_m"], r["height_high_m"], r["shadow_m"], r["shadow_az"], r["sun_elev"], r["dms"],
+                      r.get("model_score") if r.get("model_score") not in ("", None) else None, "")
         sw.close()
         open(f"{base}_{kind}.prj", "w").write(PRJ); open(f"{base}_{kind}.cpg", "w").write("UTF-8")
     with open(base + ".kml", "w", encoding="utf-8") as f:
@@ -533,10 +535,346 @@ def write_outputs(rows, img, opt, shaz, el, el_src, log):
         for i, t in enumerate(tiles):
             sheet.paste(t, ((i % cols_) * 260, (i // cols_) * 260))
         sheet.save(base + "_review.jpg", quality=88)
+    # candidate chips (for training) and the clickable review page
+    chips = [(str(r["name"]), p["chip"], p["vec"]) for r, p in rows if p.get("chip") is not None and p.get("vec") is not None]
+    if chips:
+        np.savez_compressed(base + "_chips.npz", names=np.array([c[0] for c in chips]), chips=np.array([c[1] for c in chips], np.uint8),
+                            vecs=np.array([c[2] for c in chips], np.float32))
+    if any(p.get("streak") for r, p in rows):
+        try:
+            n_html = write_review_html(rows, img, base, os.path.basename(base))
+            log(f"Review page: {os.path.basename(base)}_review.html ({n_html} cards) - open it in a browser, mark Yes/No, press 'Save labels'"
+                + (" and put the downloaded CSV in this folder; then use 'Train' to teach the model." if chips else "."))
+        except Exception as ex:
+            log("Review page could not be written: " + str(ex))
     from collections import Counter
     cnt = Counter(str(r.get("status", "")).split(" - ")[0].split(":")[0] for r, _ in rows)
     log(f"Done: {len(rows)} rows (" + ", ".join(f"{v} {k}" for k, v in cnt.most_common()) + f"). Outputs in {out}")
     log("   " + ", ".join(os.path.basename(base) + s for s in (".csv", "_points.shp", "_shadow_lines.shp", ".kml", "_review.jpg")))
+
+
+# ======================================================================= learned shadow classifier
+CHIP_U0, CHIP_U1, CHIP_V, CHIP_RES = -12.0, 36.0, 8.0, 0.5         # chip: 12 m before the shadow start to 36 m after, +-8 m across
+CHIP_W, CHIP_H = int((CHIP_U1 - CHIP_U0) / CHIP_RES), int(2 * CHIP_V / CHIP_RES)
+
+
+def make_chip(img, start, end, width):
+    """Shadow-aligned image chip (shadow points right), 0.5 m pixels, RGB + streak mask. uint8 (32, 96, 4)."""
+    sc, sr = start; ec, er = end
+    vx, vy = ec - sc, er - sr; n = math.hypot(vx, vy) or 1.0
+    ux, uy = vx / n, vy / n
+    s = CHIP_RES / img.pm
+    half = int(45 / img.pm)
+    a, x0, y0 = img.read(sc, sr, half)
+    if a is None:
+        return None
+    rgb = np.moveaxis(np.clip(a, 0, 255), 0, -1).astype(np.float32)
+    M = np.array([[ux * s, -uy * s, (sc - x0) + ux * CHIP_U0 / img.pm + uy * CHIP_V / img.pm],
+                  [uy * s, ux * s, (sr - y0) + uy * CHIP_U0 / img.pm - ux * CHIP_V / img.pm]], np.float32)
+    c = cv2.warpAffine(rgb, M, (CHIP_W, CHIP_H), flags=cv2.WARP_INVERSE_MAP | cv2.INTER_LINEAR, borderValue=(255, 255, 255))
+    m = np.zeros((CHIP_H, CHIP_W), np.uint8)
+    L = n * img.pm
+    i0, i1 = int(-CHIP_U0 / CHIP_RES), int(min(CHIP_W - 1, (L - CHIP_U0) / CHIP_RES))
+    hw = max(1, int(round(width / 2 / CHIP_RES)))
+    m[CHIP_H // 2 - hw:CHIP_H // 2 + hw + 1, i0:i1 + 1] = 255
+    return np.dstack([c.astype(np.uint8), m])
+
+
+def chip_vector(ch, length, width, contrast, dist):
+    """Feature vector: normalised grey thumbnail + gradient-orientation histograms + shape numbers."""
+    g = ch[:, :, :3].astype(np.float32).mean(2)
+    g = (g - g.mean()) / (g.std() + 8.0)
+    thumb = cv2.resize(g, (CHIP_W // 2, CHIP_H // 2), interpolation=cv2.INTER_AREA).ravel()
+    gx = cv2.Sobel(g, cv2.CV_32F, 1, 0, ksize=3); gy = cv2.Sobel(g, cv2.CV_32F, 0, 1, ksize=3)
+    mag = np.hypot(gx, gy); ang = (np.degrees(np.arctan2(gy, gx)) % 180.0)
+    b = np.minimum((ang / 20.0).astype(int), 8)
+    hog = []
+    for cy in range(0, CHIP_H, 8):
+        for cx in range(0, CHIP_W, 8):
+            h = np.bincount(b[cy:cy + 8, cx:cx + 8].ravel(), weights=mag[cy:cy + 8, cx:cx + 8].ravel(), minlength=9)
+            hog.append(h / (np.linalg.norm(h) + 1e-3))
+    raw = ch[:, :, :3].astype(np.float32).mean(2)
+    yc = CHIP_H // 2; hw = max(1, int(round(width / 2 / CHIP_RES)))
+    cols = np.nonzero(ch[:, :, 3].max(0))[0]
+    i0, i1 = (cols.min(), cols.max()) if len(cols) else (24, 30)
+    up = raw[max(0, yc - hw - 5):yc - hw - 1, i0:i1 + 1].mean() if yc - hw - 1 > 0 else 128
+    dn = raw[yc + hw + 2:yc + hw + 6, i0:i1 + 1].mean()
+    beyond = (raw[yc - 1:yc + 2, min(CHIP_W - 1, i1 + 3):min(CHIP_W, i1 + 15)] < 95).mean() if i1 + 4 < CHIP_W else 0.0
+    before = (raw[yc - 1:yc + 2, max(0, i0 - 10):max(1, i0 - 2)] < 95).mean()
+    sc = np.array([length / 30.0, width / 3.0, contrast / 60.0, dist / 30.0, up / 255.0, dn / 255.0, abs(up - dn) / 255.0,
+                   beyond, before, min(length, 60) ** 0.5 / 8.0], np.float32)
+    return np.concatenate([thumb, np.concatenate(hog), sc]).astype(np.float32)
+
+
+def train_classifier(X, y, l2=None, iters=600, log=print):
+    """L2-regularised logistic regression (numpy, Adam). Returns model dict. Positives are up-weighted to balance."""
+    X = np.asarray(X, np.float32); y = np.asarray(y, np.float32)
+    mu = X.mean(0); sd = X.std(0) + 1e-3
+    Z = (X - mu) / sd
+    wpos = (len(y) - y.sum()) / max(1.0, y.sum())
+    sw = np.where(y > 0, wpos, 1.0).astype(np.float32); sw /= sw.mean()
+
+    def fit(Zt, yt, swt, lam):
+        w = np.zeros(Zt.shape[1], np.float32); b = 0.0
+        m1 = np.zeros_like(w); v1 = np.zeros_like(w); mb = vb = 0.0
+        for t in range(1, iters + 1):
+            p = 1 / (1 + np.exp(-np.clip(Zt @ w + b, -30, 30)))
+            g = (p - yt) * swt
+            gw = Zt.T @ g / len(yt) + lam * w; gb = g.mean()
+            m1 = 0.9 * m1 + 0.1 * gw; v1 = 0.999 * v1 + 0.001 * gw * gw
+            mb = 0.9 * mb + 0.1 * gb; vb = 0.999 * vb + 0.001 * gb * gb
+            lr = 0.01
+            w -= lr * (m1 / (1 - 0.9 ** t)) / (np.sqrt(v1 / (1 - 0.999 ** t)) + 1e-8)
+            b -= lr * (mb / (1 - 0.9 ** t)) / (np.sqrt(vb / (1 - 0.999 ** t)) + 1e-8)
+        return w, b
+
+    def auc(sc, yt):
+        P = sc[yt > 0]; N = sc[yt == 0]
+        if len(P) == 0 or len(N) == 0:
+            return float("nan")
+        r = np.argsort(np.argsort(np.concatenate([P, N])))
+        return float((r[:len(P)].sum() - len(P) * (len(P) - 1) / 2) / (len(P) * len(N)))
+
+    rng = np.random.default_rng(0)
+    folds = rng.permutation(len(y)) % 5
+    cv = {}
+    for lam in ([l2] if l2 else [0.3, 0.1, 0.03, 0.01]):
+        sc = np.zeros(len(y), np.float32)
+        for f in range(5):
+            tr, te = folds != f, folds == f
+            w, b = fit(Z[tr], y[tr], sw[tr], lam)
+            sc[te] = Z[te] @ w + b
+        cv[lam] = auc(sc, y)
+    lam = max(cv, key=lambda k: (cv[k] if cv[k] == cv[k] else -1))
+    sc = np.zeros(len(y), np.float32)
+    for f in range(5):
+        tr, te = folds != f, folds == f
+        w, b = fit(Z[tr], y[tr], sw[tr], lam)
+        sc[te] = Z[te] @ w + b
+    ps = sc[y > 0]
+    t50 = float(np.percentile(ps, 50)) if len(ps) else 0.0      # half of the real objects score above this
+    t85 = float(np.percentile(ps, 15)) if len(ps) else -1.0     # 85 % score above this
+    share = lambda t: float((sc >= t).mean())
+    log(f"Review load: top {100 * share(t50):.0f}% of candidates hold half of the real objects, top {100 * share(t85):.0f}% hold 85%.")
+    w, b = fit(Z, y, sw, lam)
+    log(f"Trained on {int(y.sum())} confirmed / {int(len(y) - y.sum())} rejected examples; cross-validated AUC "
+        + ", ".join(f"{cv[k]:.2f} (l2={k})" for k in cv) + f"; using l2={lam}")
+    return dict(w=w, b=np.float32(b), mu=mu, sd=sd, n_pos=int(y.sum()), n_neg=int(len(y) - y.sum()), cv_auc=np.float32(cv[lam]),
+                t_likely=np.float32(t50), t_possible=np.float32(t85))
+
+
+def _model_dirs():
+    """Where trained models live: next to the program (shared), the user's folder, then the built-in starter model."""
+    return [os.path.dirname(os.path.abspath(sys.argv[0])), os.path.join(os.path.expanduser("~"), "ShadowHeightBatch"),
+            os.path.dirname(os.path.abspath(__file__))]
+
+
+def model_path_default():
+    for d in _model_dirs():
+        f = os.path.join(d, "shadow_model.npz")
+        if os.path.exists(f):
+            return f
+    return None
+
+
+def model_save_dir():
+    for d in _model_dirs()[:2]:
+        try:
+            os.makedirs(d, exist_ok=True)
+            t = os.path.join(d, ".write_test"); open(t, "w").write("x"); os.remove(t)
+            return d
+        except Exception:
+            continue
+    return os.getcwd()
+
+
+def load_model(path=None):
+    path = path or model_path_default()
+    if not path or not os.path.exists(path):
+        return None
+    z = np.load(path)
+    return {k: z[k] for k in z.files}
+
+
+def model_score(model, vec):
+    """Raw model score (log-odds). Compare with model['t_likely'] / model['t_possible']."""
+    zz = (vec - model["mu"]) / model["sd"]
+    return float(zz @ model["w"] + model["b"])
+
+
+def model_prob(model, vec):
+    return float(1 / (1 + math.exp(-max(-30.0, min(30.0, model_score(model, vec))))))
+
+
+def model_class(model, score):
+    if score >= float(model["t_likely"]):
+        return "likely"
+    if score >= float(model["t_possible"]):
+        return "possible"
+    return "unlikely"
+
+
+def read_labels(folder):
+    """Labels Y/N per candidate name from a review-page export (*_labels.csv) or the 'confirm' column of the results CSV/DBF."""
+    lab = {}
+    def norm(v):
+        v = str(v or "").strip().lower()
+        if v in ("y", "yes", "1", "true", "ok", "correct", "minaret", "tower", "pylon", "pole"):
+            return 1
+        if v in ("n", "no", "0", "false", "wrong", "x", "not"):
+            return 0
+        return None
+    for fn in sorted(os.listdir(folder)):
+        f = os.path.join(folder, fn)
+        if fn.lower().endswith(".csv"):
+            try:
+                with open(f, encoding="utf-8-sig") as fh:
+                    rd = csv.DictReader(fh)
+                    flds = {k.lower(): k for k in (rd.fieldnames or [])}
+                    key = flds.get("label") or flds.get("confirm")
+                    if not key or "name" not in flds:
+                        continue
+                    for r in rd:
+                        v = norm(r.get(key))
+                        if v is not None:
+                            lab[r[flds["name"]]] = v
+            except Exception:
+                pass
+        elif fn.lower().endswith("_points.dbf"):
+            try:
+                rd = shapefile.Reader(dbf=open(f, "rb"))
+                names = [fd[0].upper() for fd in rd.fields[1:]]
+                if "CONFIRM" in names and "NAME" in names:
+                    for rec in rd.records():
+                        d = dict(zip(names, rec))
+                        v = norm(d.get("CONFIRM"))
+                        if v is not None:
+                            lab[str(d["NAME"]).strip()] = v
+            except Exception:
+                pass
+    return lab
+
+
+def run_train(folders, log=print, model_out=None):
+    """Learn from confirmed (Y) / rejected (N) candidates in one or more result folders; adds to earlier training data."""
+    md = os.path.dirname(model_out) if model_out else model_save_dir()
+    data_f = os.path.join(md, "shadow_training_data.npz")
+    keys, X, y = [], [], []
+    src = data_f if os.path.exists(data_f) else None
+    if src is None:                                   # start from the built-in starter examples
+        for d in _model_dirs()[2:]:
+            f = os.path.join(d, "shadow_training_data.npz")
+            if os.path.exists(f):
+                src = f
+    if src:
+        z = np.load(src, allow_pickle=False)
+        keys, X, y = list(z["keys"]), list(z["X"]), list(z["y"])
+        log(f"Earlier training data: {int(np.sum(y))} confirmed / {len(y) - int(np.sum(y))} rejected ({os.path.basename(src)})")
+    index = {k: i for i, k in enumerate(keys)}
+    added = 0
+    for folder in folders:
+        npzs = [f for f in os.listdir(folder) if f.endswith("_chips.npz")]
+        if not npzs:
+            log(f"  {folder}: no *_chips.npz (run an automatic mode first) - skipped"); continue
+        lab = read_labels(folder)
+        if not lab:
+            log(f"  {folder}: no labels found (review page export *_labels.csv, or fill the 'confirm' column with Y/N) - skipped"); continue
+        for f in npzs:
+            z = np.load(os.path.join(folder, f), allow_pickle=False)
+            for nm, vec in zip(z["names"], z["vecs"]):
+                if nm in lab:
+                    k = f"{os.path.abspath(folder)}|{f}|{nm}"
+                    if k in index:
+                        X[index[k]] = vec; y[index[k]] = lab[nm]
+                    else:
+                        index[k] = len(keys); keys.append(k); X.append(vec); y.append(lab[nm]); added += 1
+        log(f"  {folder}: {sum(lab.values())} confirmed, {len(lab) - sum(lab.values())} rejected")
+    y = np.array(y, np.float32)
+    if y.sum() < 5 or (len(y) - y.sum()) < 5:
+        raise ValueError("Need at least 5 confirmed and 5 rejected examples to train.")
+    model = train_classifier(np.array(X, np.float32), y, log=log)
+    out = model_out or os.path.join(md, "shadow_model.npz")
+    np.savez_compressed(out, **model)
+    np.savez_compressed(data_f, keys=np.array(keys), X=np.array(X, np.float32), y=y)
+    log(f"Model saved: {out}  ({added} new examples). Automatic modes use it from now on. "
+        f"Share it with colleagues by copying shadow_model.npz next to their ShadowHeightBatch.exe.")
+    return out
+
+
+def write_review_html(rows, img, base, title):
+    """Self-contained review page: one card per candidate, Yes/No buttons, saves <name>_labels.csv for training."""
+    import base64, io, html as _html
+    cards = []
+    for r, p in rows:
+        s = p.get("streak")
+        if not s:
+            continue
+        half = int(max(18.0, s["length_m"] * 0.8 + 8) / img.pm)
+        a, c0, r0 = img.read((s["start"][0] + s["end"][0]) / 2, (s["start"][1] + s["end"][1]) / 2, half)
+        if a is None:
+            continue
+        T = 230; Z = T / (2 * half)
+        im = Image.fromarray(np.moveaxis(np.clip(a, 0, 255).astype(np.uint8), 0, -1)).resize((T, T), Image.LANCZOS)
+        dr = ImageDraw.Draw(im)
+        vx, vy = s["end"][0] - s["start"][0], s["end"][1] - s["start"][1]; n = math.hypot(vx, vy) or 1
+        px_, py_ = -vy / n, vx / n; o = 4.0 / img.pm
+        for (cx, cy), col in ((s["start"], (255, 0, 255)), (s["end"], (0, 255, 255))):
+            dr.line([((cx - c0 + px_ * o) * Z, (cy - r0 + py_ * o) * Z), ((cx - c0 + px_ * o * 2) * Z, (cy - r0 + py_ * o * 2) * Z)], fill=col, width=3)
+        b1 = io.BytesIO(); im.save(b1, "JPEG", quality=80)
+        imgs = [base64.b64encode(b1.getvalue()).decode()]
+        ch = p.get("chip")
+        if ch is not None:
+            ci = Image.fromarray(ch[:, :, :3]).resize((CHIP_W * 3, CHIP_H * 3), Image.LANCZOS)
+            d2 = ImageDraw.Draw(ci); cols_ = np.nonzero(ch[:, :, 3].max(0))[0]; rws = np.nonzero(ch[:, :, 3].max(1))[0]
+            if len(cols_):
+                x0_, x1_ = cols_.min() * 3, (cols_.max() + 1) * 3; y0_, y1_ = rws.min() * 3 - 8, (rws.max() + 1) * 3 + 8
+                d2.line([x0_, y0_, x1_, y0_], fill=(255, 0, 255), width=2); d2.line([x0_, y1_, x1_, y1_], fill=(255, 0, 255), width=2)
+            b2 = io.BytesIO(); ci.save(b2, "JPEG", quality=80); imgs.append(base64.b64encode(b2.getvalue()).decode())
+        cards.append(dict(name=str(r["name"]), h=r.get("height_m"), st=r.get("status", ""), sc=r.get("model_score", ""),
+                          lat=r.get("lat"), lon=r.get("lon"), imgs=imgs))
+    import json as _json
+    page = """<!doctype html><html><head><meta charset="utf-8"><title>Review - %(title)s</title><style>
+body{font-family:Segoe UI,Arial,sans-serif;background:#1d1f22;color:#eee;margin:0}
+header{position:sticky;top:0;background:#111;padding:10px 14px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;z-index:2}
+header b{color:#ffd54a} button{font:inherit;border:0;border-radius:6px;padding:6px 12px;cursor:pointer}
+.grid{display:flex;flex-wrap:wrap;gap:10px;padding:12px}
+.card{background:#2a2d31;border:3px solid #2a2d31;border-radius:8px;padding:6px;width:530px}
+.card.sel{border-color:#ffd54a}.card.y{background:#1f3a24}.card.n{background:#3a1f1f}
+.card img{display:block;border-radius:4px}.row{display:flex;gap:6px;align-items:flex-start}
+.meta{font-size:13px;margin:4px 0}.yes{background:#2e7d32;color:#fff}.no{background:#c62828;color:#fff}.un{background:#555;color:#fff}
+.help{font-size:12px;color:#bbb}</style></head><body>
+<header><b>%(title)s</b><span id="cnt"></span>
+<button class="yes" onclick="save()">Save labels (CSV for training)</button>
+<label>Show <select id="flt" onchange="draw()"><option value="all">all</option><option value="u">not labelled</option><option value="y">yes</option><option value="n">no</option></select></label>
+<span class="help">Click a card, then press <b>Y</b> = real tall thin object (minaret / tower / pylon / pole), <b>N</b> = not (wall, gap, tree, car), <b>U</b> = unsure. Arrow keys move.
+Left picture: north up, magenta tick = shadow start (object base), cyan tick = shadow tip. Right: same shadow turned to point right.</span></header>
+<div class="grid" id="g"></div>
+<script>
+const C=%(cards)s; const KEY="shb_labels_%(key)s"; let L={}; try{L=JSON.parse(localStorage.getItem(KEY)||"{}")}catch(e){}
+let sel=0;
+function store(){try{localStorage.setItem(KEY,JSON.stringify(L))}catch(e){}}
+function draw(){const f=document.getElementById("flt").value;const g=document.getElementById("g");g.innerHTML="";
+C.forEach((c,i)=>{const v=L[c.name]||"";if(f=="u"&&v)return;if(f=="y"&&v!="Y")return;if(f=="n"&&v!="N")return;
+const d=document.createElement("div");d.className="card"+(i==sel?" sel":"")+(v=="Y"?" y":v=="N"?" n":"");d.id="c"+i;
+d.innerHTML=`<div class="meta"><b>${c.name}</b> &nbsp; ${c.h==null?"":c.h+" m"} &nbsp; <span style="color:#aaa">${c.st}</span></div>
+<div class="row"><img src="data:image/jpeg;base64,${c.imgs[0]}" width="230" height="230">${c.imgs[1]?`<img src="data:image/jpeg;base64,${c.imgs[1]}" width="288" height="96">`:""}</div>
+<div class="meta"><button class="yes" onclick="lab(${i},'Y')">Yes (Y)</button> <button class="no" onclick="lab(${i},'N')">No (N)</button> <button class="un" onclick="lab(${i},'')">Unsure (U)</button>
+&nbsp; ${v?("<b>"+(v=="Y"?"YES":"NO")+"</b>"):""} <span style="color:#888;font-size:12px">${c.lat}, ${c.lon}</span></div>`;
+d.onclick=()=>{sel=i;mark()};g.appendChild(d)});count()}
+function mark(){document.querySelectorAll(".card").forEach(e=>e.classList.remove("sel"));const e=document.getElementById("c"+sel);if(e){e.classList.add("sel");e.scrollIntoView({block:"nearest"})}}
+function lab(i,v){if(v)L[C[i].name]=v;else delete L[C[i].name];store();sel=Math.min(C.length-1,i+1);draw();mark()}
+function count(){const y=Object.values(L).filter(v=>v=="Y").length,n=Object.values(L).filter(v=>v=="N").length;
+document.getElementById("cnt").textContent=`${C.length} candidates | yes ${y} | no ${n} | open ${C.length-y-n}`}
+function save(){let t="name,label\\n";for(const k in L)t+=k+","+L[k]+"\\n";const a=document.createElement("a");
+a.href=URL.createObjectURL(new Blob([t],{type:"text/csv"}));a.download="%(key)s_labels.csv";a.click()}
+document.addEventListener("keydown",e=>{const k=e.key.toLowerCase();if(k=="y")lab(sel,"Y");else if(k=="n")lab(sel,"N");else if(k=="u")lab(sel,"");
+else if(k=="arrowright"||k=="arrowdown"){sel=Math.min(C.length-1,sel+1);mark();e.preventDefault()}else if(k=="arrowleft"||k=="arrowup"){sel=Math.max(0,sel-1);mark();e.preventDefault()}});
+draw();
+</script></body></html>"""
+    key = os.path.basename(base)
+    with open(base + "_review.html", "w", encoding="utf-8") as f:
+        f.write(page % dict(title=_html.escape(title), cards=_json.dumps(cards), key=key))
+    return len(cards)
 
 
 # ======================================================================= automatic scan (no points needed)
@@ -739,6 +1077,9 @@ def run_scan(opt, log=print, progress=lambda f: None, stop=lambda: False):
     progress(1.0)
     found = dedupe_streaks(cands, img.pm)
     log(f"{len(found)} separate thin shadows found")
+    model = load_model(opt.get("model")) if opt.get("use_model", True) else None
+    if model is not None:
+        log(f"Ranking with the learned model ({int(model['n_pos'])} confirmed / {int(model['n_neg'])} rejected examples)")
     # build result rows (same outputs as point mode)
     rows = []
     azs = [s["az"] for s in found]
@@ -759,13 +1100,24 @@ def run_scan(opt, log=print, progress=lambda f: None, stop=lambda: False):
             st = "check: direction differs from other shadows"
         elif s["contrast"] < 30:
             st = "check: faint shadow"
+        ch = make_chip(img, s["start"], s["end"], s["width_m"])
+        vec = chip_vector(ch, s["length_m"], s["width_m"], s["contrast"], 0.0) if ch is not None else None
+        ms = model_score(model, vec) if (model is not None and vec is not None) else None
+        if ms is not None:
+            s["mscore"] = ms
+            st = model_class(model, ms) + " (model)" + ("" if st == "ok" else " / " + st.replace("check: ", ""))
         r = dict(status=st, height_m=round(h, 1), height_low_m=round(lo_, 1), height_high_m=round(hi_, 1), height_ft=round(h * FT, 1),
                  shadow_m=round(s["length_m"], 2), shadow_az=round(s["az"], 1), sun_elev=round(el, 2), lat=round(bl, 7), lon=round(bo, 7),
                  dms=f"{dms(bo, 'E', 'W')} {dms(bl, 'N', 'S')}", tip_lat=round(tl, 7), tip_lon=round(to, 7), sun_source=el_src,
-                 input_lat="", input_lon="", known_height_m="", width_m=round(s["width_m"], 2))
-        p = dict(inside=True, col=s["start"][0], row=s["start"][1], streak=s)
+                 input_lat="", input_lon="", known_height_m="", width_m=round(s["width_m"], 2),
+                 model_score=round(ms, 2) if ms is not None else "")
+        p = dict(inside=True, col=s["start"][0], row=s["start"][1], streak=s, chip=ch, vec=vec)
         rows.append((r, p))
-    rows.sort(key=lambda rp: -rp[0]["height_m"])
+    if model is not None:
+        order = {"likely": 0, "possible": 1, "unlikely": 2}
+        rows.sort(key=lambda rp: (order.get(rp[0]["status"].split()[0], 1), -rp[1]["streak"].get("mscore", 0.0)))
+    else:
+        rows.sort(key=lambda rp: -rp[0]["height_m"])
     for i, (r, p) in enumerate(rows, 1):
         r["name"] = f"AUTO-{i:04d}"
     log(f"{len(rows)} objects at or above {min_h:.0f} m "
@@ -869,7 +1221,13 @@ def run_mosques(opt, log=print, progress=lambda f: None, stop=lambda: False):
     tan = math.tan(el * D2R)
     min_h = opt.get("min_height") or 0.0
     min_len = max(4.0, 0.9 * min_h / tan)
-    per = opt.get("per_mosque", 2)
+    model = load_model(opt.get("model")) if opt.get("use_model", True) else None
+    if model is not None:
+        log(f"Using learned model ({int(model['n_pos'])} confirmed / {int(model['n_neg'])} rejected examples, AUC {float(model['cv_auc']):.2f})")
+    else:
+        log("No learned model - candidates are ranked by shadow length. Label the review page and use 'Train' to create one.")
+    per = opt.get("per_mosque", 3 if model is not None else 2)
+    max_h = opt.get("max_height", 60.0)
     cands = []
     for i, (la, lo, rad, c, r) in enumerate(inside):
         if stop():
@@ -884,37 +1242,53 @@ def run_mosques(opt, log=print, progress=lambda f: None, stop=lambda: False):
             x["mosque"] = i; x["site"] = (la, lo)
         cs = dedupe_streaks(cs, img.pm)
         cs.sort(key=lambda x: -x["score"])
+        if model is not None:                       # learned ranking: look at the 6 longest, keep the best by model score
+            cs = cs[:6]
+            for x in cs:
+                x["chip"] = make_chip(img, x["start"], x["end"], x["width_m"])
+                if x["chip"] is not None:
+                    x["vec"] = chip_vector(x["chip"], x["length_m"], x["width_m"], x["contrast"], x["start_dist_m"])
+                    x["mscore"] = model_score(model, x["vec"])
+                else:
+                    x["mscore"] = -99.0
+            cs.sort(key=lambda x: -x["mscore"])
         for rank, x in enumerate(cs[:per], 1):
             x["rank"] = rank
         cands += cs[:per]
         if (i + 1) % 50 == 0:
             log(f"  {i + 1} of {len(inside)} mosques searched, {len(cands)} candidate shadows")
     progress(1.0)
+    if model is None:                                # no model: chips are still saved so the results can be labelled
+        for s in cands:
+            s["chip"] = make_chip(img, s["start"], s["end"], s["width_m"])
+            if s["chip"] is not None:
+                s["vec"] = chip_vector(s["chip"], s["length_m"], s["width_m"], s["contrast"], s["start_dist_m"])
     found = dedupe_streaks(cands, img.pm)
     rows = []
     for s in found:
         h = s["length_m"] * tan
         if h < min_h:
             continue
-        st = "likely - verify on review sheet"
-        if h > 70:
-            st = "possible - very tall, verify"
-        elif s.get("rank", 1) > 1:
-            st = "possible - 2nd shadow at this mosque"
-        elif s["width_m"] < AUTO_OK_WIDTH:
-            st = "possible - thin, may be a gap between buildings"
-        elif s["contrast"] < 28:
-            st = "possible - faint shadow"
+        if model is not None:
+            st = model_class(model, s.get("mscore", -99.0)) + " (model)"
+        else:
+            st = "likely - verify" if s.get("rank", 1) == 1 else "possible - 2nd shadow at this mosque"
+            if s["width_m"] < AUTO_OK_WIDTH:
+                st = "possible - thin, may be a gap between buildings"
+        if h > max_h:
+            st = "unlikely - longer than a minaret: wall or kerb shadow?"
         rr = streak_row(s, img, el, el_src, dn, de, st)
         rr.update(width_m=round(s["width_m"], 2), mosque_lat=round(s["site"][0], 6), mosque_lon=round(s["site"][1], 6),
-                  mosque=s.get("mosque"), dist=round(s["start_dist_m"], 1))
-        rows.append((rr, dict(inside=True, col=s["start"][0], row=s["start"][1], streak=s)))
-    rows.sort(key=lambda rp: -rp[0]["height_m"])
+                  mosque=s.get("mosque"), dist=round(s["start_dist_m"], 1),
+                  model_score=round(s["mscore"], 2) if "mscore" in s else "")
+        rows.append((rr, dict(inside=True, col=s["start"][0], row=s["start"][1], streak=s, chip=s.get("chip"), vec=s.get("vec"))))
+    order = {"likely": 0, "possible": 1, "unlikely": 2}
+    rows.sort(key=lambda rp: (order.get(rp[0]["status"].split()[0], 1), -(rp[1]["streak"].get("mscore", 0.0)), -rp[0]["height_m"]))
     for i, (r, p) in enumerate(rows, 1):
         r["name"] = f"MNR-{i:04d}"
-    log(f"{len(rows)} candidate minaret shadows at or above {min_h:.0f} m around {len(inside)} mosques "
-        f"({sum(1 for r, _ in rows if r['status'].startswith('likely'))} likely). "
-        "Open the review sheet and delete the ones that are not minarets (walls and gaps between buildings look similar).")
+    n_l = sum(1 for r, _ in rows if r["status"].startswith("likely"))
+    log(f"{len(rows)} candidate minaret shadows at or above {min_h:.0f} m around {len(inside)} mosques ({n_l} likely). "
+        "Open the review page, mark Yes/No and train: the model learns your imagery.")
     opt = dict(opt); opt.setdefault("out_name", "minaret_scan_heights")
     write_outputs(rows, img, opt, shaz, el, el_src, log)
     return [r for r, _ in rows]
@@ -993,6 +1367,19 @@ def selftest(folder):
             ok = ok and good
     except Exception as ex:
         print("Automatic mode test FAILED:", ex); traceback.print_exc(); ok = False
+    # training: label the 6 towers found by the mosque search as confirmed, learn together with the starter examples
+    try:
+        fo = os.path.join(folder, "selftest_mosque")
+        names = [r["name"] for r in csv.DictReader(open(os.path.join(fo, "minaret_scan_heights.csv"), encoding="utf-8-sig"))]
+        with open(os.path.join(fo, "minaret_scan_heights_labels.csv"), "w", newline="") as f:
+            f.write("name,label\n" + "".join(f"{n},Y\n" for n in names))
+        mp = run_train([fo], log=print, model_out=os.path.join(folder, "selftest_model.npz"))
+        mm = load_model(mp)
+        good = mm is not None and int(mm["n_pos"]) >= 6 and os.path.exists(os.path.join(folder, "selftest_mosque", "minaret_scan_heights_review.html"))
+        print("Training + review page:", "OK" if good else "FAILED")
+        ok = ok and good
+    except Exception as ex:
+        print("Training test FAILED:", ex); traceback.print_exc(); ok = False
     try:
         n_m = len(read_sites(builtin_mosques()))
         print(f"Built-in mosque list: {n_m} mosques", "OK" if n_m > 10000 else "FAILED")
@@ -1008,7 +1395,7 @@ def gui():
     import tkinter as tk
     from tkinter import ttk, filedialog, messagebox
     root = tk.Tk(); root.title(f"{APP} {VERSION}"); root.geometry("820x760")
-    v = {k: tk.StringVar() for k in ("image", "points", "mosques", "area", "out", "elev", "date", "time", "tz", "az", "search", "maxsh", "minh", "dn", "de")}
+    v = {k: tk.StringVar() for k in ("image", "points", "mosques", "area", "out", "elev", "date", "time", "tz", "az", "search", "maxsh", "minh", "dn", "de", "train")}
     v["tz"].set("3"); v["search"].set("25"); v["maxsh"].set("80"); v["minh"].set("15"); v["dn"].set("0"); v["de"].set("0")
     mode = tk.StringVar(value="known")
     job = tk.StringVar(value="points")
@@ -1021,6 +1408,16 @@ def gui():
                     variable=job, value="mosques").grid(row=1, column=0, sticky="w")
     ttk.Radiobutton(jf, text="AUTOMATIC: scan the whole image / area for poles, masts, pylons, towers (best in open ground)",
                     variable=job, value="scan").grid(row=2, column=0, sticky="w")
+    ttk.Radiobutton(jf, text="TRAIN: learn from reviewed results (folders where you saved labels from the review page)",
+                    variable=job, value="train").grid(row=3, column=0, sticky="w")
+    tf = ttk.Frame(jf); tf.grid(row=4, column=0, sticky="we")
+    ttk.Label(tf, text="Results folder(s) to learn from:").pack(side="left")
+    ttk.Entry(tf, textvariable=v["train"], width=58).pack(side="left", padx=4)
+    def add_train():
+        d = filedialog.askdirectory()
+        if d:
+            v["train"].set((v["train"].get() + ";" if v["train"].get().strip() else "") + d)
+    ttk.Button(tf, text="Add folder...", command=add_train).pack(side="left")
 
     def row(r, label, var, browse=None, width=60):
         ttk.Label(frm, text=label).grid(row=r, column=0, sticky="w", pady=3)
@@ -1063,6 +1460,13 @@ def gui():
     def work():
         try:
             j = job.get()
+            if j == "train":
+                folders = [x.strip() for x in v["train"].get().split(";") if x.strip()]
+                if not folders:
+                    raise ValueError("Add at least one results folder that contains *_labels.csv from the review page.")
+                outm = run_train(folders, log=log)
+                root.after(0, lambda: messagebox.showinfo(APP, "Model trained and saved:\n" + outm))
+                return
             out = v["out"].get() or os.path.join(os.path.dirname(v["image"].get()), "shadow_height_output")
             o = dict(image=v["image"].get(), points=v["points"].get().strip() or None, out_dir=out,
                      search_m=num("search", 25), max_shadow_m=num("maxsh", 80), min_height=num("minh"), shadow_az=num("az"),
@@ -1090,7 +1494,7 @@ def gui():
                 run_mosques(o, log=log, progress=prog, stop=stop)
             else:
                 run_scan(o, log=log, progress=prog, stop=stop)
-            root.after(0, lambda: messagebox.showinfo(APP, "Finished. Check the review sheet (JPG) in the output folder:\n" + out))
+            root.after(0, lambda: messagebox.showinfo(APP, "Finished. Open the review page (HTML) or sheet (JPG) in the output folder:\n" + out))
         except Exception as e:
             log("ERROR: " + str(e)); log(traceback.format_exc())
             root.after(0, lambda: messagebox.showerror(APP, str(e)))
@@ -1128,14 +1532,21 @@ def main():
     ap.add_argument("--no-known", action="store_true", help="ignore known_height_m column")
     ap.add_argument("--scan", action="store_true", help="scan the whole image (or --area) for tall thin objects; no points needed")
     ap.add_argument("--area", help="KML/KMZ/SHP/CSV whose extent limits the scan")
+    ap.add_argument("--train", nargs="+", metavar="FOLDER", help="learn from reviewed result folders (labels from the review page)")
+    ap.add_argument("--model", help="model file to use / write (default: shadow_model.npz next to the program)")
+    ap.add_argument("--no-model", action="store_true", help="rank automatic results by length only")
     ap.add_argument("--mosques-auto", action="store_true", help="find minarets around mosques of the built-in OpenStreetMap list")
     ap.add_argument("--mosques", help="your own mosques file (points or outlines: CSV/SHP/KML) for the minaret search")
     ap.add_argument("--spread", type=float, default=20); ap.add_argument("--step", type=float, default=4)
     a = ap.parse_args()
     if a.selftest:
         sys.exit(0 if selftest(a.selftest) else 1)
+    if a.train:
+        run_train(a.train, model_out=a.model)
+        return
     o = dict(image=a.image, points=a.points, out_dir=a.out, search_m=a.search, max_shadow_m=a.max_shadow, min_height=a.min_height,
-             shadow_az=a.shadow_az, offset_n=a.offset_n, offset_e=a.offset_e, tz=a.tz, use_known=not a.no_known, sun_elev=a.sun_elev)
+             shadow_az=a.shadow_az, offset_n=a.offset_n, offset_e=a.offset_e, tz=a.tz, use_known=not a.no_known, sun_elev=a.sun_elev,
+             model=a.model, use_model=not a.no_model)
     if a.date:
         o["date"] = dt.date.fromisoformat(a.date)
         if a.time:
