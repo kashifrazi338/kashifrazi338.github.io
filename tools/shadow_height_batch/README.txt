@@ -1,4 +1,4 @@
-SHADOW HEIGHT BATCH 3.0  -  heights of minarets, towers, poles and pylons from satellite shadows
+SHADOW HEIGHT BATCH 3.1  -  heights of minarets, towers, poles and pylons from satellite shadows
 ================================================================================================
 
 WHAT IT DOES
@@ -34,9 +34,27 @@ THE LEARNING LOOP (do this for the first few images, then the automatic results 
 The log after training shows the quality (AUC: 0.5 = guessing, 1.0 = perfect) and how much of the list you need to
 look at to find half / 85% of the real objects.
 
+SECOND IMAGE CHECK (NEW in 3.1) - the strongest filter
+A real minaret / tower casts a shadow from the SAME base in a second image of another date, and the height measured there
+must agree. Walls, gaps and kerbs fail this test. Give a second view in "Second image check":
+   - ArcGIS MapServer (cached tiles), e.g.  https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer
+     (acquisition dates are read from the service, each acquisition is calibrated separately)
+   - XYZ / WMTS tile URL with {z}/{x}/{y}  (or {TileMatrix}/{TileCol}/{TileRow}), Google-Maps tiling
+   - WMS URL (GetMap, EPSG:4326)
+   - or an image file (GeoTIFF/JP2) of another date
+Small windows (about 120 m) are fetched around each candidate only. The program lines the two images up, measures the shadow
+again and calibrates the second image's sun from the candidates (or enter its sun elevation / shadow direction).
+Status then starts with "confirmed by 2nd image" (shadow and height agree), or ends with "2nd image: no matching shadow /
+different height". Confirmed results are listed first.
+Test on Riyadh with World Imagery (WV03 5 Sep 2025 / GE01 8 Dec 2025 / WV02 23 Sep 2025) against your 30 checked results:
+10 of your 21 real minarets confirmed, 1 of 9 false ones -> about 9 in 10 "confirmed" results are real minarets.
+Not confirmed does NOT mean wrong: in the second image the shadow may fall on a building or a car may hide the base.
+Use services under your organisation's licence (Esri World Imagery: ArcGIS account / terms of use); add a token if required.
+Internet access is needed for URLs.
+
 STARTER MODEL - WHAT TO EXPECT
-The built-in starter model learned from 26 confirmed minarets and 784 rejected shadows in the Riyadh K763X53392 clip.
-Test result (cross-validated): AUC 0.80. The top 21% of candidates hold half of the real minarets, the top 41% hold 85%.
+The built-in model learned from your 30 checked results (21 real, 9 false) plus 786 rejected shadows in the Riyadh
+K763X53392 clip. Test result (cross-validated): AUC 0.74 (0.5 = guessing). It still needs your labels to get better.
 In dense blocks, narrow gaps between buildings still look like minaret shadows, so ALWAYS check the review page.
 About 200-300 labelled examples from your own imagery should improve it clearly.
 Shadows that fall into a dark courtyard or onto another building's shadow cannot be seen - those minarets are missed.
@@ -76,6 +94,7 @@ COMMAND LINE (optional)
   ShadowHeightBatch.exe --image clip.tif --points pts.csv --out results --sun-elev 61.9 --search 15
   ShadowHeightBatch.exe --mosques-auto --image clip.tif --out results --sun-elev 61.9 --shadow-az 312 [--area strip.kml]
   ShadowHeightBatch.exe --scan --image clip.tif --out results --sun-elev 61.9 [--area area.kml]
+  ShadowHeightBatch.exe --mosques-auto --image clip.tif --out results --sun-elev 61.9 --second https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer
   ShadowHeightBatch.exe --train results1 results2            (learn from labelled folders)
   ShadowHeightBatch.exe --selftest test_folder               (installation check: must end with SELFTEST PASSED)
 

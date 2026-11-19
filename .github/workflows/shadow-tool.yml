@@ -34,7 +34,7 @@ jobs:
           --include-data-files=tools/shadow_height_batch/shadow_training_data.npz=shadow_training_data.npz
           --nofollow-import-to=pytest --nofollow-import-to=IPython --nofollow-import-to=matplotlib
           --windows-console-mode=attach
-          --company-name="Shadow Height" --product-name="Shadow Height Batch" --file-version=3.0.0.0 --product-version=3.0.0.0
+          --company-name="Shadow Height" --product-name="Shadow Height Batch" --file-version=3.1.0.0 --product-version=3.1.0.0
           --output-filename=ShadowHeightBatch.exe --output-dir=build
           tools/shadow_height_batch/shadow_height_batch.py
       - name: Test exe
@@ -42,13 +42,15 @@ jobs:
         run: |
           ./build/ShadowHeightBatch.exe --selftest exe_test 2>&1 | tee exe_test.log
           grep -q "SELFTEST PASSED" exe_test.log
+          ./build/ShadowHeightBatch.exe --test-second https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer 2>&1 | tee -a exe_test.log
+          grep -q "second image window: OK" exe_test.log
           SHB_GUI_SMOKE=gui_exe.txt ./build/ShadowHeightBatch.exe; sleep 3; cat gui_exe.txt | tee -a exe_test.log
       - name: Package and commit
         shell: bash
         run: |
           mkdir -p results_tool pkg
           cp build/ShadowHeightBatch.exe tools/shadow_height_batch/README.txt tools/shadow_height_batch/points_template.csv pkg/
-          (cd pkg && 7z a -tzip ../results_tool/ShadowHeightBatch_v3.zip *)
+          (cd pkg && 7z a -tzip ../results_tool/ShadowHeightBatch_v3_1.zip *)
           cp exe_test.log results_tool/
           git config user.name "github-actions"; git config user.email "actions@github.com"
           git add results_tool

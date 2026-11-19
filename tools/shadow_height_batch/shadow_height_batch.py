@@ -32,7 +32,7 @@ import shapefile
 from PIL import Image, ImageDraw, ImageFont
 
 APP = "Shadow Height Batch"
-VERSION = "3.0"
+VERSION = "3.1"
 D2R, R2D = math.pi / 180.0, 180.0 / math.pi
 FT = 3.28084
 # automatic modes: minaret / mast shadows are 1.4-2.5 m wide; gaps between buildings and kerb lines are thinner
@@ -447,6 +447,8 @@ def run_batch(opt, log=print, progress=lambda f: None):
                 r["status"] = "check: unusually long shadow - verify on review sheet"
             elif h is not None and p["streak"]["start_dist_m"] > 0.6 * opt["search_m"] and r["status"] == "ok":
                 r["status"] = "check: shadow starts far from the point - verify on review sheet"
+    if opt.get("second"):
+        second_view_check(rows, img, opt, el, log=log, progress=progress)
     write_outputs(rows, img, opt, shaz, el, el_src, log)
     return [r for r, _ in rows]
 
@@ -467,7 +469,7 @@ def write_outputs(rows, img, opt, shaz, el, el_src, log):
     out = opt["out_dir"]; os.makedirs(out, exist_ok=True)
     base = os.path.join(out, opt.get("out_name", "shadow_heights"))
     cols = ["name", "status", "height_m", "height_low_m", "height_high_m", "height_ft", "dms", "lat", "lon", "shadow_m", "shadow_az",
-            "sun_elev", "known_height_m", "error_vs_known_m", "tip_lat", "tip_lon", "input_lat", "input_lon", "width_m", "mosque_lat", "mosque_lon", "model_score", "confirm", "sun_source"]
+            "sun_elev", "known_height_m", "error_vs_known_m", "tip_lat", "tip_lon", "input_lat", "input_lon", "width_m", "mosque_lat", "mosque_lon", "model_score", "h2_m", "second_check", "second_date", "confirm", "sun_source"]
     with open(base + ".csv", "w", newline="", encoding="utf-8-sig") as f:
         w = csv.DictWriter(f, fieldnames=cols, extrasaction="ignore"); w.writeheader()
         for r, _ in rows:
@@ -877,6 +879,247 @@ draw();
     return len(cards)
 
 
+# ======================================================================= second image (basemap / WMS / WMTS / file) check
+class SecondImage:
+    """A second, independent view: an image file, an ArcGIS MapServer (cached tiles), an XYZ/WMTS tile URL with {z}/{x}/{y},
+    or a WMS GetMap URL. Small windows are fetched around each candidate and saved as temporary GeoTIFFs (EPSG:4326)."""
+    R = 6378137.0
+
+    def __init__(self, spec, workdir, zoom=19, token=None, log=print):
+        import tempfile
+        self.spec = spec.strip(); self.zoom = int(zoom); self.token = token; self.log = log
+        self.dir = tempfile.mkdtemp(prefix="shb2_", dir=workdir if workdir and os.path.isdir(workdir) else None)
+        self.kind = "file"
+        u = self.spec.lower()
+        if u.startswith("http"):
+            if "/mapserver" in u and "{z}" not in u:
+                self.kind = "arcgis"; self.base = self.spec.split("?")[0].rstrip("/")
+                if self.base.lower().endswith("/tile"):
+                    self.base = self.base[:-5]
+            elif "{z}" in u or "{tilematrix}" in u:
+                self.kind = "xyz"
+            elif "wms" in u:
+                self.kind = "wms"
+            else:
+                raise ValueError("Second image URL not recognised. Use an ArcGIS .../MapServer URL, an XYZ/WMTS URL with {z}/{x}/{y}, or a WMS URL.")
+        elif not os.path.exists(self.spec):
+            raise ValueError("Second image file not found: " + self.spec)
+        self.n = 0; self._meta = {}
+
+    def _get(self, url):
+        import urllib.request
+        if self.token:
+            url += ("&" if "?" in url else "?") + "token=" + self.token
+        last = None
+        for k in range(3):
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": f"{APP} {VERSION}"})
+                return urllib.request.urlopen(req, timeout=30).read()
+            except Exception as e:
+                last = e
+        raise last
+
+    def date(self, lat, lon):
+        """Acquisition date / source of the second image at this place (ArcGIS World Imagery style identify), else ''."""
+        if self.kind != "arcgis":
+            return ""
+        key = (round(lat, 3), round(lon, 3))
+        if key in self._meta:
+            return self._meta[key]
+        val = ""
+        try:
+            import json as _j
+            u = (f"{self.base}/identify?geometry={lon},{lat}&geometryType=esriGeometryPoint&sr=4326&layers=all&tolerance=1"
+                 f"&mapExtent={lon - .001},{lat - .001},{lon + .001},{lat + .001}&imageDisplay=400,400,96&returnGeometry=false&f=json")
+            res = _j.loads(self._get(u)).get("results", [])
+            for r in res:
+                a = r.get("attributes", {})
+                d = a.get("DATE (YYYYMMDD)") or a.get("SRC_DATE") or a.get("SRC_DATE2")
+                if d and d != "Null":
+                    val = f"{d} {a.get('DESCRIPTION', '')}".strip(); break
+        except Exception:
+            pass
+        self._meta[key] = val
+        return val
+
+    def window(self, lat, lon, half_m=60.0):
+        """Img of the second view around (lat, lon), resampled to a 0.3 m geographic grid, or None."""
+        from rasterio.warp import reproject, Resampling
+        from rasterio.transform import from_origin
+        import io
+        res_m = 0.3
+        n = int(2 * half_m / res_m)
+        dlat = res_m / 110700.0; dlon = res_m / (111320.0 * math.cos(math.radians(lat)))
+        T = from_origin(lon - half_m / (111320.0 * math.cos(math.radians(lat))), lat + half_m / 110700.0, dlon, dlat)
+        out = np.zeros((3, n, n), np.float32)
+        if self.kind == "file":
+            with rasterio.open(self.spec) as s:
+                bands = [1, 2, 3] if s.count >= 3 else [1, 1, 1]
+                for i, b in enumerate(bands):
+                    reproject(rasterio.band(s, b), out[i], dst_transform=T, dst_crs="EPSG:4326", resampling=Resampling.bilinear)
+        elif self.kind == "wms":
+            l, t = T.c, T.f; r_, b_ = l + n * dlon, t - n * dlat
+            base = self.spec
+            sep = "&" if "?" in base else "?"
+            u = base
+            if "request=getmap" not in base.lower():
+                u = base + sep + "SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&STYLES=&FORMAT=image/jpeg&SRS=EPSG:4326"
+            u += f"&BBOX={l},{b_},{r_},{t}&WIDTH={n}&HEIGHT={n}"
+            im = np.array(Image.open(io.BytesIO(self._get(u))).convert("RGB").resize((n, n)))
+            out = np.moveaxis(im.astype(np.float32), -1, 0)
+        else:
+            Z = self.zoom; O = math.pi * self.R; ts = 2 * O / 2 ** Z
+            x = self.R * math.radians(lon); y = self.R * math.log(math.tan(math.pi / 4 + math.radians(lat) / 2))
+            k = half_m / math.cos(math.radians(lat)) + 5
+            tx0, tx1 = int((x - k + O) // ts), int((x + k + O) // ts)
+            ty0, ty1 = int((O - (y + k)) // ts), int((O - (y - k)) // ts)
+            mos = np.zeros(((ty1 - ty0 + 1) * 256, (tx1 - tx0 + 1) * 256, 3), np.uint8)
+            for ty in range(ty0, ty1 + 1):
+                for tx in range(tx0, tx1 + 1):
+                    if self.kind == "arcgis":
+                        u = f"{self.base}/tile/{Z}/{ty}/{tx}"
+                    else:
+                        u = (self.spec.replace("{z}", str(Z)).replace("{x}", str(tx)).replace("{y}", str(ty))
+                             .replace("{TileMatrix}", str(Z)).replace("{TileCol}", str(tx)).replace("{TileRow}", str(ty)))
+                    try:
+                        im = Image.open(io.BytesIO(self._get(u))).convert("RGB")
+                        mos[(ty - ty0) * 256:(ty - ty0 + 1) * 256, (tx - tx0) * 256:(tx - tx0 + 1) * 256] = np.array(im)[:256, :256]
+                    except Exception:
+                        pass
+            if mos.max() == 0:
+                return None
+            from rasterio.transform import from_origin as fo
+            src_T = fo(tx0 * ts - O, O - ty0 * ts, ts / 256, ts / 256)
+            for i in range(3):
+                reproject(mos[:, :, i].astype(np.float32), out[i], src_transform=src_T, src_crs="EPSG:3857", dst_transform=T,
+                          dst_crs="EPSG:4326", resampling=Resampling.bilinear)
+        if out.max() <= 0:
+            return None
+        self.n += 1
+        p = os.path.join(self.dir, f"w{self.n}.tif")
+        with rasterio.open(p, "w", driver="GTiff", width=n, height=n, count=3, dtype="uint8", crs="EPSG:4326", transform=T) as d:
+            d.write(np.clip(out, 0, 255).astype(np.uint8))
+        return p
+
+    def close(self):
+        import shutil
+        shutil.rmtree(self.dir, ignore_errors=True)
+
+
+def _register(img, w_path, lat, lon, half_m=60.0):
+    """Shift (metres east, north) that moves the second view onto the primary image, by phase correlation of edges."""
+    w = Img(w_path)
+    res_m = 0.5; n = int(2 * half_m / res_m)
+    def grab(I):
+        c, r = I.to_pixel(lat, lon); half = int(half_m / I.pm)
+        a, x0, y0 = I.read(c, r, half)
+        if a is None:
+            return None
+        g = cv2.resize(a.mean(0), (n, n), interpolation=cv2.INTER_AREA)
+        g = cv2.GaussianBlur(g, (0, 0), 1.0)
+        return np.hypot(cv2.Sobel(g, cv2.CV_32F, 1, 0), cv2.Sobel(g, cv2.CV_32F, 0, 1)).astype(np.float32)
+    g1, g2 = grab(img), grab(w)
+    if g1 is None or g2 is None:
+        return 0.0, 0.0, 0.0
+    (dx, dy), resp = cv2.phaseCorrelate(g1, g2, cv2.createHanningWindow((n, n), cv2.CV_32F))
+    if math.hypot(dx, dy) * res_m > 15:                    # implausible jump: do not shift
+        return 0.0, 0.0, float(resp)
+    return dx * res_m, -dy * res_m, float(resp)
+
+
+def second_view_check(rows, img, opt, el1, log=print, progress=lambda f: None, stop=lambda: False):
+    """Measure every candidate again in the second image. A real tall object casts a shadow from the same base in both
+    images; its height from the second image must agree. Adds h2_m / second_check columns and adjusts the status."""
+    src = SecondImage(opt["second"], opt.get("out_dir"), zoom=opt.get("second_zoom", 19), token=opt.get("second_token"), log=log)
+    log(f"Second image: {opt['second']} ({src.kind})")
+    meas = []
+    try:
+        todo = [(r, p) for r, p in rows if p.get("streak")]
+        for i, (r, p) in enumerate(todo):
+            if stop():
+                raise ValueError("Stopped by user.")
+            progress(i / max(1, len(todo)))
+            s = p["streak"]
+            lat, lon = img.to_latlon(*s["start"])
+            try:
+                wp = src.window(lat, lon)
+            except Exception as ex:
+                wp = None
+                if i == 0:
+                    log("  second image fetch failed: " + str(ex))
+            if not wp:
+                meas.append(None); continue
+            de_, dn_, resp = _register(img, wp, lat, lon)
+            w = Img(wp)
+            la2 = lat - dn_ / 110700.0; lo2 = lon - de_ / (111320.0 * math.cos(math.radians(lat)))
+            c2, r2 = w.to_pixel(la2, lo2)
+            cs = find_streak(w, c2, r2, s["az"], 7.0, opt["max_shadow_m"], spread=45, step=3, collect=True, min_len=3.0)
+            cs = [x for x in cs if 0.8 <= x["width_m"] <= 4.0]
+            meas.append(dict(date=src.date(lat, lon), cands=[(x["length_m"], x["az"], x["start_dist_m"]) for x in cs], shift=(de_, dn_)))
+            if (i + 1) % 50 == 0:
+                log(f"  {i + 1} of {len(todo)} candidates checked in the second image")
+        progress(1.0)
+    finally:
+        src.close()
+    # calibrate the second image's sun (direction + elevation) per acquisition from the best-ranked candidates
+    todo = [(r, p) for r, p in rows if p.get("streak")]
+    groups = {}
+    for (r, p), m in zip(todo, meas):
+        if m:
+            groups.setdefault(m["date"], []).append((r, p, m))
+    t1 = math.tan(el1 * D2R)
+    for g, items in groups.items():
+        az2, tan2 = opt.get("second_az"), (math.tan(opt["second_elev"] * D2R) if opt.get("second_elev") else None)
+        good = sorted(items, key=lambda it: -(it[1]["streak"].get("mscore", 0.0)))[:max(8, len(items) // 3)]
+        if az2 is None:
+            a_all = [c[1] for it in good for c in it[2]["cands"][:2] if c[0] >= 4]
+            if len(a_all) < 6:
+                a_all = [c[1] for it in items for c in it[2]["cands"][:2] if c[0] >= 4]
+            if len(a_all) >= 3:
+                az2 = max(np.arange(0, 360, 1.0), key=lambda a0: sum(abs(wrap180(a - a0)) <= 8 for a in a_all))
+        if tan2 is None and az2 is not None:
+            rat = []
+            for r, p, m in good:
+                c = [c for c in m["cands"] if abs(wrap180(c[1] - az2)) <= 12 and c[0] >= 4]
+                if c:
+                    rat.append(p["streak"]["length_m"] * t1 / max(c, key=lambda c: c[0])[0])
+            tan2 = float(np.median(rat)) if len(rat) >= 4 else None
+        if tan2 is None and az2 is not None:                  # fall back to the sun position for the acquisition date
+            mm = re.match(r"(\d{4})(\d{2})(\d{2})", g or "")
+            if mm:
+                la_ = float(np.mean([img.to_latlon(*it[1]["streak"]["start"])[0] for it in items]))
+                lo_ = float(np.mean([img.to_latlon(*it[1]["streak"]["start"])[1] for it in items]))
+                e2, _ = elevation_from_date(dt.date(int(mm.group(1)), int(mm.group(2)), int(mm.group(3))), opt.get("tz", 3.0), la_, lo_, az2, None)
+                if e2:
+                    tan2 = math.tan(e2 * D2R)
+        if az2 is None or tan2 is None:
+            log(f"  second image {g or ''}: could not calibrate its sun - enter 2nd-image sun elevation/azimuth"); continue
+        log(f"  second image {g or '(one acquisition)'}: {len(items)} candidates, its shadow direction {az2 % 360:.0f} deg, sun elevation {math.degrees(math.atan(tan2)):.1f} deg")
+        for r, p, m in items:
+            h1 = r["height_m"]
+            c = [c for c in m["cands"] if abs(wrap180(c[1] - az2)) <= 15]
+            if not c:
+                r["second_check"] = "no matching shadow"; r["h2_m"] = ""
+            else:
+                best = min(c, key=lambda c: abs(c[0] * tan2 - h1))
+                h2 = best[0] * tan2
+                r["h2_m"] = round(h2, 1)
+                r["second_check"] = "agrees" if abs(h2 - h1) <= 0.35 * max(h1, 1.0) else "different height"
+            r["second_date"] = g
+    n_ag = 0
+    for r, p in rows:
+        chk = r.get("second_check")
+        if not chk:
+            continue
+        if chk == "agrees":
+            n_ag += 1
+            r["status"] = "confirmed by 2nd image - " + r["status"]
+        else:
+            r["status"] = r["status"] + f" - 2nd image: {chk}"
+    log(f"Second image check: {n_ag} of {len(todo)} candidates confirmed (same base, matching shadow and height).")
+    return n_ag
+
+
 # ======================================================================= automatic scan (no points needed)
 def read_aoi(path, img, buffer_m=0, dn=0.0, de=0.0):
     """Bounding box (col0,row0,col1,row1) in image pixels of the features in a KML/KMZ/SHP/CSV file."""
@@ -1113,11 +1356,15 @@ def run_scan(opt, log=print, progress=lambda f: None, stop=lambda: False):
                  model_score=round(ms, 2) if ms is not None else "")
         p = dict(inside=True, col=s["start"][0], row=s["start"][1], streak=s, chip=ch, vec=vec)
         rows.append((r, p))
+    if opt.get("second"):
+        second_view_check(rows, img, opt, el, log=log, progress=progress, stop=stop)
+    conf = lambda rp: 0 if rp[0]["status"].startswith("confirmed") else 1
     if model is not None:
         order = {"likely": 0, "possible": 1, "unlikely": 2}
-        rows.sort(key=lambda rp: (order.get(rp[0]["status"].split()[0], 1), -rp[1]["streak"].get("mscore", 0.0)))
+        rows.sort(key=lambda rp: (conf(rp), order.get(rp[0]["status"].replace("confirmed by 2nd image - ", "").split()[0], 1),
+                                  -rp[1]["streak"].get("mscore", 0.0)))
     else:
-        rows.sort(key=lambda rp: -rp[0]["height_m"])
+        rows.sort(key=lambda rp: (conf(rp), -rp[0]["height_m"]))
     for i, (r, p) in enumerate(rows, 1):
         r["name"] = f"AUTO-{i:04d}"
     log(f"{len(rows)} objects at or above {min_h:.0f} m "
@@ -1282,8 +1529,14 @@ def run_mosques(opt, log=print, progress=lambda f: None, stop=lambda: False):
                   mosque=s.get("mosque"), dist=round(s["start_dist_m"], 1),
                   model_score=round(s["mscore"], 2) if "mscore" in s else "")
         rows.append((rr, dict(inside=True, col=s["start"][0], row=s["start"][1], streak=s, chip=s.get("chip"), vec=s.get("vec"))))
+    if opt.get("second"):
+        second_view_check(rows, img, opt, el, log=log, progress=progress, stop=stop)
     order = {"likely": 0, "possible": 1, "unlikely": 2}
-    rows.sort(key=lambda rp: (order.get(rp[0]["status"].split()[0], 1), -(rp[1]["streak"].get("mscore", 0.0)), -rp[0]["height_m"]))
+    def _cls(st):
+        st = st.replace("confirmed by 2nd image - ", "")
+        return order.get(st.split()[0], 1)
+    rows.sort(key=lambda rp: (0 if rp[0]["status"].startswith("confirmed") else 1, _cls(rp[0]["status"]),
+                              -(rp[1]["streak"].get("mscore", 0.0)), -rp[0]["height_m"]))
     for i, (r, p) in enumerate(rows, 1):
         r["name"] = f"MNR-{i:04d}"
     n_l = sum(1 for r, _ in rows if r["status"].startswith("likely"))
@@ -1367,6 +1620,16 @@ def selftest(folder):
             ok = ok and good
     except Exception as ex:
         print("Automatic mode test FAILED:", ex); traceback.print_exc(); ok = False
+    # second-image check (here the same image again, so every tower must be confirmed)
+    try:
+        o = dict(image=tif, out_dir=os.path.join(folder, "selftest_second"), max_shadow_m=80, sun_elev=el, shadow_az=None, min_height=10,
+                 mosques=mcsv, second=tif)
+        got = run_mosques(o, log=print)
+        n_c = sum(1 for r in got if r["status"].startswith("confirmed"))
+        print(f"Second image check: {n_c} of {len(got)} confirmed", "OK" if n_c == len(towers) else "FAILED")
+        ok = ok and n_c == len(towers)
+    except Exception as ex:
+        print("Second image test FAILED:", ex); traceback.print_exc(); ok = False
     # training: label the 6 towers found by the mosque search as confirmed, learn together with the starter examples
     try:
         fo = os.path.join(folder, "selftest_mosque")
@@ -1394,8 +1657,9 @@ def selftest(folder):
 def gui():
     import tkinter as tk
     from tkinter import ttk, filedialog, messagebox
-    root = tk.Tk(); root.title(f"{APP} {VERSION}"); root.geometry("820x760")
-    v = {k: tk.StringVar() for k in ("image", "points", "mosques", "area", "out", "elev", "date", "time", "tz", "az", "search", "maxsh", "minh", "dn", "de", "train")}
+    root = tk.Tk(); root.title(f"{APP} {VERSION}"); root.geometry("860x900")
+    v = {k: tk.StringVar() for k in ("image", "points", "mosques", "area", "out", "elev", "date", "time", "tz", "az", "search", "maxsh", "minh", "dn", "de", "train",
+                                     "second", "token", "elev2", "az2")}
     v["tz"].set("3"); v["search"].set("25"); v["maxsh"].set("80"); v["minh"].set("15"); v["dn"].set("0"); v["de"].set("0")
     mode = tk.StringVar(value="known")
     job = tk.StringVar(value="points")
@@ -1430,6 +1694,13 @@ def gui():
     row(3, "Mosques file (optional)", v["mosques"], lambda: v["mosques"].set(filedialog.askopenfilename(filetypes=vec)))
     row(4, "Limit to area (optional)", v["area"], lambda: v["area"].set(filedialog.askopenfilename(filetypes=vec)))
     row(5, "Output folder", v["out"], lambda: v["out"].set(filedialog.askdirectory()))
+    sf = ttk.LabelFrame(frm, text="Second image check (optional) - basemap / WMS / WMTS / ArcGIS MapServer URL, or an image file of another date", padding=6)
+    sf.grid(row=9, column=0, columnspan=3, sticky="we", pady=4)
+    ttk.Entry(sf, textvariable=v["second"], width=78).grid(row=0, column=0, columnspan=5, sticky="we")
+    ttk.Button(sf, text="File...", command=lambda: v["second"].set(filedialog.askopenfilename(filetypes=[("Images", "*.tif *.tiff *.jp2"), ("All", "*.*")]))).grid(row=0, column=5, padx=4)
+    ttk.Label(sf, text="token (if the service needs one)").grid(row=1, column=0, sticky="w"); ttk.Entry(sf, textvariable=v["token"], width=22).grid(row=1, column=1, sticky="w")
+    ttk.Label(sf, text="its sun elevation / shadow dir. (blank = calibrate)").grid(row=1, column=2, sticky="e")
+    ttk.Entry(sf, textvariable=v["elev2"], width=6).grid(row=1, column=3, sticky="w"); ttk.Entry(sf, textvariable=v["az2"], width=6).grid(row=1, column=4, sticky="w")
     ttk.Label(frm, foreground="#555", text="Automatic modes: Points file is optional - use it only to give 2+ known heights for sun calibration. "
               "Mosques file blank = built-in list. Area = any KML/SHP/CSV, its extent is scanned.", wraplength=760).grid(row=6, column=0, columnspan=3, sticky="w")
     lf = ttk.LabelFrame(frm, text="Sun elevation", padding=8); lf.grid(row=7, column=0, columnspan=3, sticky="we", pady=8)
@@ -1446,9 +1717,9 @@ def gui():
     for i, (lab, k) in enumerate(opts):
         ttk.Label(of, text=lab).grid(row=i // 2, column=(i % 2) * 2, sticky="w", padx=4, pady=2)
         ttk.Entry(of, textvariable=v[k], width=10).grid(row=i // 2, column=(i % 2) * 2 + 1, sticky="w", pady=2)
-    pb = ttk.Progressbar(frm, mode="determinate", maximum=100); pb.grid(row=9, column=0, columnspan=3, sticky="we", pady=8)
-    txt = tk.Text(frm, height=12, wrap="word"); txt.grid(row=11, column=0, columnspan=3, sticky="nsew")
-    frm.columnconfigure(1, weight=1); frm.rowconfigure(11, weight=1)
+    pb = ttk.Progressbar(frm, mode="determinate", maximum=100); pb.grid(row=14, column=0, columnspan=3, sticky="we", pady=8)
+    txt = tk.Text(frm, height=12, wrap="word"); txt.grid(row=16, column=0, columnspan=3, sticky="nsew")
+    frm.columnconfigure(1, weight=1); frm.rowconfigure(16, weight=1)
 
     def log(m):
         root.after(0, lambda: (txt.insert("end", m + "\n"), txt.see("end")))
@@ -1471,7 +1742,9 @@ def gui():
             o = dict(image=v["image"].get(), points=v["points"].get().strip() or None, out_dir=out,
                      search_m=num("search", 25), max_shadow_m=num("maxsh", 80), min_height=num("minh"), shadow_az=num("az"),
                      offset_n=num("dn", 0), offset_e=num("de", 0), tz=num("tz", 3), use_known=mode.get() == "known",
-                     mosques=v["mosques"].get().strip() or None, area=v["area"].get().strip() or None)
+                     mosques=v["mosques"].get().strip() or None, area=v["area"].get().strip() or None,
+                     second=v["second"].get().strip() or None, second_token=v["token"].get().strip() or None,
+                     second_elev=num("elev2"), second_az=num("az2"))
             if not o["image"]:
                 raise ValueError("Choose the image.")
             if j == "points" and not o["points"]:
@@ -1504,7 +1777,7 @@ def gui():
     def start():
         txt.delete("1.0", "end"); run_btn.configure(state="disabled"); stop_btn.configure(state="normal"); stop_flag["stop"] = False
         threading.Thread(target=work, daemon=True).start()
-    bf = ttk.Frame(frm); bf.grid(row=10, column=0, columnspan=3, pady=4)
+    bf = ttk.Frame(frm); bf.grid(row=15, column=0, columnspan=3, pady=4)
     run_btn = ttk.Button(bf, text="Run", command=start); run_btn.pack(side="left", padx=6)
     stop_btn = ttk.Button(bf, text="Stop", state="disabled", command=lambda: stop_flag.update(stop=True)); stop_btn.pack(side="left", padx=6)
     log("Measure at points: CSV with name, lat, lon (or a 'coord' column with DMS); optional known_height_m.\n"
@@ -1532,6 +1805,10 @@ def main():
     ap.add_argument("--no-known", action="store_true", help="ignore known_height_m column")
     ap.add_argument("--scan", action="store_true", help="scan the whole image (or --area) for tall thin objects; no points needed")
     ap.add_argument("--area", help="KML/KMZ/SHP/CSV whose extent limits the scan")
+    ap.add_argument("--second", help="second view: image file, ArcGIS .../MapServer URL, XYZ/WMTS URL with {z}/{x}/{y}, or WMS URL")
+    ap.add_argument("--second-token"); ap.add_argument("--second-zoom", type=int, default=19)
+    ap.add_argument("--second-elev", type=float); ap.add_argument("--second-az", type=float)
+    ap.add_argument("--test-second", metavar="URL", help="check that a second-image service can be read (fetches one window in Riyadh)")
     ap.add_argument("--train", nargs="+", metavar="FOLDER", help="learn from reviewed result folders (labels from the review page)")
     ap.add_argument("--model", help="model file to use / write (default: shadow_model.npz next to the program)")
     ap.add_argument("--no-model", action="store_true", help="rank automatic results by length only")
@@ -1544,9 +1821,19 @@ def main():
     if a.train:
         run_train(a.train, model_out=a.model)
         return
+    if a.test_second:
+        src = SecondImage(a.test_second, None, zoom=a.second_zoom, token=a.second_token)
+        try:
+            pth = src.window(24.7248, 46.8440, 40)
+            ok_ = bool(pth) and Img(pth).ds.read(1).max() > 0
+            print("second image window:", "OK" if ok_ else "EMPTY", "| acquisition:", src.date(24.7248, 46.8440) or "(no metadata)")
+        finally:
+            src.close()
+        sys.exit(0 if ok_ else 1)
     o = dict(image=a.image, points=a.points, out_dir=a.out, search_m=a.search, max_shadow_m=a.max_shadow, min_height=a.min_height,
              shadow_az=a.shadow_az, offset_n=a.offset_n, offset_e=a.offset_e, tz=a.tz, use_known=not a.no_known, sun_elev=a.sun_elev,
-             model=a.model, use_model=not a.no_model)
+             model=a.model, use_model=not a.no_model, second=a.second, second_token=a.second_token, second_zoom=a.second_zoom,
+             second_elev=a.second_elev, second_az=a.second_az)
     if a.date:
         o["date"] = dt.date.fromisoformat(a.date)
         if a.time:
