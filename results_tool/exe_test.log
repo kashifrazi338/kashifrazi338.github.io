@@ -22,7 +22,7 @@ Image 1200 x 1200 px, 0.50 x 0.50 m per pixel
 Shadow direction detected from 6 image windows: 300 deg
 Tip: enter the shadow direction (sun azimuth from the metadata + 180) for faster, cleaner results.
 Sun elevation used: 50.00 deg  (entered by user (metadata))
-Using learned model (26 confirmed / 784 rejected examples, AUC 0.80)
+Using learned model (23 confirmed / 793 rejected examples, AUC 0.74)
 6 candidate minaret shadows at or above 10 m around 6 mosques (5 likely). Open the review page, mark Yes/No and train: the model learns your imagery.
 Review page: minaret_scan_heights_review.html (6 cards) - open it in a browser, mark Yes/No, press 'Save labels' and put the downloaded CSV in this folder; then use 'Train' to teach the model.
 Done: 6 rows (5 likely (model), 1 possible (model)). Outputs in exe_test\selftest_mosque
@@ -33,18 +33,33 @@ Shadow direction detected from 25 image windows: 300 deg
 Sun elevation used: 50.00 deg  (entered by user (metadata))
 Looking for thin shadows 7.6-80 m long (objects above about 10 m)
 6 separate thin shadows found
-Ranking with the learned model (26 confirmed / 784 rejected examples)
+Ranking with the learned model (23 confirmed / 793 rejected examples)
 6 objects at or above 10 m (0 ok, 6 to check)
 Review page: auto_scan_heights_review.html (6 cards) - open it in a browser, mark Yes/No, press 'Save labels' and put the downloaded CSV in this folder; then use 'Train' to teach the model.
 Done: 6 rows (5 likely (model), 1 possible (model)). Outputs in exe_test\selftest_whole-image
    auto_scan_heights.csv, auto_scan_heights_points.shp, auto_scan_heights_shadow_lines.shp, auto_scan_heights.kml, auto_scan_heights_review.jpg
 whole-image scan: found 6 of 6 towers, heights [17.9, 20.3, 23.8, 27.4, 34.6, 44.7] OK
-Earlier training data: 26 confirmed / 784 rejected (shadow_training_data.npz)
+Image 1200 x 1200 px, 0.50 x 0.50 m per pixel
+6 mosques inside the image (selftest_mosques.csv)
+Shadow direction detected from 6 image windows: 300 deg
+Tip: enter the shadow direction (sun azimuth from the metadata + 180) for faster, cleaner results.
+Sun elevation used: 50.00 deg  (entered by user (metadata))
+Using learned model (23 confirmed / 793 rejected examples, AUC 0.74)
+Second image: exe_test\selftest_image.tif (file)
+  second image (one acquisition): 6 candidates, its shadow direction 294 deg, sun elevation 50.1 deg
+Second image check: 6 of 6 candidates confirmed (same base, matching shadow and height).
+6 candidate minaret shadows at or above 10 m around 6 mosques (0 likely). Open the review page, mark Yes/No and train: the model learns your imagery.
+Review page: minaret_scan_heights_review.html (6 cards) - open it in a browser, mark Yes/No, press 'Save labels' and put the downloaded CSV in this folder; then use 'Train' to teach the model.
+Done: 6 rows (6 confirmed by 2nd image). Outputs in exe_test\selftest_second
+   minaret_scan_heights.csv, minaret_scan_heights_points.shp, minaret_scan_heights_shadow_lines.shp, minaret_scan_heights.kml, minaret_scan_heights_review.jpg
+Second image check: 6 of 6 confirmed OK
+Earlier training data: 23 confirmed / 793 rejected (shadow_training_data.npz)
   exe_test\selftest_mosque: 6 confirmed, 0 rejected
-Review load: top 15% of candidates hold half of the real objects, top 39% hold 85%.
-Trained on 32 confirmed / 784 rejected examples; cross-validated AUC 0.82 (l2=0.3), 0.82 (l2=0.1), 0.82 (l2=0.03), 0.80 (l2=0.01); using l2=0.1
+Review load: top 10% of candidates hold half of the real objects, top 46% hold 85%.
+Trained on 29 confirmed / 793 rejected examples; cross-validated AUC 0.83 (l2=0.3), 0.82 (l2=0.1), 0.80 (l2=0.03), 0.77 (l2=0.01); using l2=0.3
 Model saved: exe_test\selftest_model.npz  (6 new examples). Automatic modes use it from now on. Share it with colleagues by copying shadow_model.npz next to their ShadowHeightBatch.exe.
 Training + review page: OK
 Built-in mosque list: 21003 mosques OK
 SELFTEST PASSED max error 0.3 m
+second image window: OK | acquisition: 20250905 WV03
 GUI OK
