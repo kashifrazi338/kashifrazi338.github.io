@@ -34,7 +34,7 @@ Sun elevation used: 50.00 deg  (entered by user (metadata))
 Looking for thin shadows 7.6-80 m long (objects above about 10 m)
 6 separate thin shadows found
 Ranking with the learned model (23 confirmed / 793 rejected examples)
-6 objects at or above 10 m (0 ok, 6 to check)
+6 objects at or above 10 m (5 likely, 1 possible)
 Review page: auto_scan_heights_review.html (6 cards) - open it in a browser, mark Yes/No, press 'Save labels' and put the downloaded CSV in this folder; then use 'Train' to teach the model.
 Done: 6 rows (5 likely (model), 1 possible (model)). Outputs in exe_test\selftest_whole-image
    auto_scan_heights.csv, auto_scan_heights_points.shp, auto_scan_heights_shadow_lines.shp, auto_scan_heights.kml, auto_scan_heights_review.jpg
