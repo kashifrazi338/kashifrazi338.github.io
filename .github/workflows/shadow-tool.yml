@@ -34,7 +34,7 @@ jobs:
           --include-data-files=tools/shadow_height_batch/shadow_training_data.npz=shadow_training_data.npz
           --nofollow-import-to=pytest --nofollow-import-to=IPython --nofollow-import-to=matplotlib
           --windows-console-mode=attach
-          --company-name="Shadow Height" --product-name="Shadow Height Batch" --file-version=3.3.0.0 --product-version=3.3.0.0
+          --company-name="Shadow Height" --product-name="Shadow Height Batch" --file-version=3.4.0.0 --product-version=3.4.0.0
           --output-filename=ShadowHeightBatch.exe --output-dir=build
           tools/shadow_height_batch/shadow_height_batch.py
       - name: Test exe
@@ -47,13 +47,16 @@ jobs:
           printf 'name,lat,lon\nNW,24.7262,46.8425\nSE,24.7235,46.8455\n' > svc_area.csv
           ./build/ShadowHeightBatch.exe --mosques-auto --image "https://www.arcgis.com/apps/mapviewer/index.html?url=https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer&source=sd" --area svc_area.csv --out svc_out 2>&1 | tee -a exe_test.log
           ls svc_out/minaret_scan_heights.csv
+          printf '<kml><Placemark><Point><coordinates>46.8440,24.7248,0</coordinates></Point></Placemark></kml>' > svc_point.kml
+          ./build/ShadowHeightBatch.exe --mosques-auto --image "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer" --area svc_point.kml --out svc_out2 2>&1 | tee -a exe_test.log
+          ls svc_out2/minaret_scan_heights.csv
           SHB_GUI_SMOKE=gui_exe.txt ./build/ShadowHeightBatch.exe; sleep 3; cat gui_exe.txt | tee -a exe_test.log
       - name: Package and commit
         shell: bash
         run: |
           mkdir -p results_tool pkg
           cp build/ShadowHeightBatch.exe tools/shadow_height_batch/README.txt tools/shadow_height_batch/points_template.csv pkg/
-          (cd pkg && 7z a -tzip ../results_tool/ShadowHeightBatch_v3_3.zip *)
+          (cd pkg && 7z a -tzip ../results_tool/ShadowHeightBatch_v3_4.zip *)
           cp exe_test.log results_tool/
           git config user.name "github-actions"; git config user.email "actions@github.com"
           git add results_tool

@@ -32,7 +32,7 @@ import shapefile
 from PIL import Image, ImageDraw, ImageFont
 
 APP = "Shadow Height Batch"
-VERSION = "3.3"
+VERSION = "3.4"
 D2R, R2D = math.pi / 180.0, 180.0 / math.pi
 FT = 3.28084
 # automatic modes: minaret / mast shadows are 1.4-2.5 m wide; gaps between buildings and kerb lines are thinner
@@ -1061,13 +1061,22 @@ def extent_for_service(opt):
     la0, la1 = min(la) - buf / 110700.0, max(la) + buf / 110700.0
     k = 111320.0 * math.cos(math.radians((la0 + la1) / 2))
     lo0, lo1 = min(lo) - buf / k, max(lo) + buf / k
+    w_m, h_m = (lo1 - lo0) * k, (la1 - la0) * 110700.0
+    if w_m < 100 or h_m < 100:
+        # a point (or a line) was given as the area: use a square of at least 600 m around it
+        cla, clo = (la0 + la1) / 2, (lo0 + lo1) / 2
+        hw, hh = max(300.0, w_m / 2), max(300.0, h_m / 2)
+        la0, la1, lo0, lo1 = cla - hh / 110700.0, cla + hh / 110700.0, clo - hw / k, clo + hw / k
+        opt.get("_log", print)(f"The area file {os.path.basename(src)} holds a point / very small shape ({len(lls)} coordinate(s)) - "
+                               f"using a {2 * hw:.0f} x {2 * hh:.0f} m square around it. Use a polygon or 2 corner points for a larger area.")
     return la0, lo0, la1, lo1
 
 
 def download_service_image(opt, log=print, progress=lambda f: None, stop=lambda: False):
     """Download the processing area from a WMS / WMTS / ArcGIS MapServer into a GeoTIFF (EPSG:4326, ~0.3 m) in the output folder."""
     spec = opt["image"].strip()
-    la0, lo0, la1, lo1 = extent_for_service(opt)
+    la0, lo0, la1, lo1 = extent_for_service(dict(opt, _log=log))
+    log(f"Area: lat {la0:.5f} to {la1:.5f}, lon {lo0:.5f} to {lo1:.5f}")
     k = 111320.0 * math.cos(math.radians((la0 + la1) / 2))
     wm, hm = (lo1 - lo0) * k, (la1 - la0) * 110700.0
     km2 = wm * hm / 1e6
@@ -1126,6 +1135,7 @@ def prepare_image(opt, log=print, progress=lambda f: None, stop=lambda: False):
     opt = dict(opt)
     path, dates = download_service_image(opt, log, progress, stop)
     opt["image"] = path
+    opt["area"] = None                      # the downloaded image is exactly the area
     if opt.get("sun_elev") is None and opt.get("date") is None and not opt.get("known_ok") and dates:
         m_ = re.match(r"(\d{4})(\d{2})(\d{2})", dates[0])
         if m_:
@@ -2048,10 +2058,10 @@ def main():
             raise SystemExit("--out is required with an imagery service")
         o = prepare_image(o)
     if a.mosques_auto or a.mosques:
-        o["area"] = a.area; o["mosques"] = a.mosques
+        o.setdefault("area", a.area); o["mosques"] = a.mosques
         run_mosques(o)
     elif a.scan:
-        o["area"] = a.area; o["spread"] = a.spread; o["step"] = a.step
+        o.setdefault("area", a.area); o["spread"] = a.spread; o["step"] = a.step
         run_scan(o)
     else:
         run_batch(o)
