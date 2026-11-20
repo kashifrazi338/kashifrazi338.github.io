@@ -1,4 +1,4 @@
-SHADOW HEIGHT BATCH 3.4  -  heights of minarets, towers, poles and pylons from satellite shadows
+SHADOW HEIGHT BATCH 3.5  -  heights of minarets, towers, poles and pylons from satellite shadows
 ================================================================================================
 
 WHAT IT DOES
@@ -55,8 +55,9 @@ Use services under your organisation's licence (Esri World Imagery: ArcGIS accou
 Internet access is needed for URLs.
 
 STARTER MODEL - WHAT TO EXPECT
-The built-in model learned from your 30 checked results (21 real, 9 false) plus 786 rejected shadows in the Riyadh
-K763X53392 clip. Test result (cross-validated): AUC 0.74 (0.5 = guessing). It still needs your labels to get better.
+The built-in model (3.5) learned from 35 confirmed minarets and 822 rejected shadows: your 40 checks (30 in the K763X53392
+clip, 10 in Olaya) plus candidates checked in World Imagery. Cross-validated AUC 0.81 (0.5 = guessing): the top 12% of the
+ranked list holds half of the real minarets, the top 49% holds 85%. Every Train run with your own Yes/No marks improves it.
 In dense blocks, narrow gaps between buildings still look like minaret shadows, so ALWAYS check the review page.
 About 200-300 labelled examples from your own imagery should improve it clearly.
 Shadows that fall into a dark courtyard or onto another building's shadow cannot be seen - those minarets are missed.

@@ -28,8 +28,8 @@ jobs:
           mkdir -p results_service
           cd tools/service_run
           rm -f out_mosques/service_image.tif
-          zip -q -r ../../results_service/olaya_minarets_around_mosques.zip out_mosques log_mosques.txt
-          zip -q -r ../../results_service/olaya_whole_area_scan.zip out_scan log_scan.txt
+          zip -q -r ../../results_service/v35_minarets_around_mosques.zip out_mosques log_mosques.txt
+          zip -q -r ../../results_service/v35_whole_area_scan.zip out_scan log_scan.txt
           cd ../..
           git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add results_service && git commit -m "Service-only results ${{ github.run_id }} [skip ci]" && (git push || (git pull --rebase && git push))

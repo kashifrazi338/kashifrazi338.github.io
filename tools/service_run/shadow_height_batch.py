@@ -32,7 +32,7 @@ import shapefile
 from PIL import Image, ImageDraw, ImageFont
 
 APP = "Shadow Height Batch"
-VERSION = "3.4"
+VERSION = "3.5"
 D2R, R2D = math.pi / 180.0, 180.0 / math.pi
 FT = 3.28084
 # automatic modes: minaret / mast shadows are 1.4-2.5 m wide; gaps between buildings and kerb lines are thinner
